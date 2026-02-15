@@ -27,7 +27,7 @@ struct Splash: View {
             if splashScreen {
                 SplashScreen()
             } else {
-                onBoarding1()
+                MainPage()
             }
 
             if splashScreen {
