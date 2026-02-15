@@ -19,6 +19,8 @@ struct UsernameEntryView: View {
     @State private var availableHosts: [MCPeerID] = []
     @State private var isSearching: Bool = false
     @State private var showProfile: Bool = false
+    @State private var showJoinHint: Bool = false
+    @State private var showInviteHint: Bool = false
     
     var body: some View {
         ZStack {
@@ -72,7 +74,7 @@ struct UsernameEntryView: View {
 
                         VStack(spacing: 14) {
                             Button(action: {
-                                startAsHost()
+                                showInviteHint = true
                             }) {
                                 Text("اعزمهم على مجموعتك")
                                     .font(.appHeadline)
@@ -86,7 +88,7 @@ struct UsernameEntryView: View {
                             .padding(.horizontal, 32)
 
                             Button(action: {
-                                startAsGuest()
+                                showJoinHint = true
                             }) {
                                 Text("اقلط بمجموعه")
                                     .font(.appHeadline)
@@ -113,7 +115,33 @@ struct UsernameEntryView: View {
                 }
             }
             
-            // هنا
+            if showJoinHint {
+                JoinHintView(
+                    onContinue: {
+                        showJoinHint = false
+                        startAsGuest()
+                    },
+                    onDismiss: {
+                        showJoinHint = false
+                    }
+                )
+                .zIndex(100)
+                .transition(.opacity)
+            }
+            
+            if showInviteHint {
+                InviteHintView(
+                    onContinue: {
+                        showInviteHint = false
+                        startAsHost()
+                    },
+                    onDismiss: {
+                        showInviteHint = false
+                    }
+                )
+                .zIndex(100)
+                .transition(.opacity)
+            }
         }
         .sheet(isPresented: $showProfile) {
                     ProfileView(
@@ -172,6 +200,157 @@ struct UsernameEntryView: View {
         }
     }
 }
+
+// MARK: - Join Hint (التعليمات - الإجتماع)
+struct JoinHintView: View {
+    var onContinue: () -> Void
+    var onDismiss: () -> Void
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { onDismiss() }
+            
+            VStack(spacing: 0) {
+                Image("logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 100)
+                    .zIndex(1)
+                    .offset(y: 8)
+                
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text("التعليمات")
+                        .font(.appCaption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    
+                    Text("1")
+                        .font(.appTitle(28))
+                        .foregroundColor(AppTheme.textPrimary)
+                    
+                    Text("الإجتماع")
+                        .font(.appTitle(22))
+                        .foregroundColor(AppTheme.textPrimary)
+                    
+                    Rectangle()
+                        .fill(AppTheme.textSecondary.opacity(0.3))
+                        .frame(height: 1)
+                        .padding(.vertical, 4)
+                    
+                    Text("حدد الميدان، خش مع مجموعة\nأو اعزم ربعك، وخلوكم جنب بعض\nعشان يتفعّل البلوتوث")
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    HStack(spacing: 12) {
+                        Button(action: onDismiss) {
+                            Text("إلغاء")
+                                .font(.appHeadline)
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                        Button(action: onContinue) {
+                            Text("استمر")
+                                .font(.appHeadline)
+                                .foregroundColor(AppTheme.textOnAccent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(AppTheme.accent)
+                                .cornerRadius(16)
+                        }
+                    }
+                    .padding(.top, 12)
+                }
+                .padding(24)
+                .frame(maxWidth: 320)
+                .background(AppTheme.surface)
+                .cornerRadius(20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(AppTheme.textPrimary.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+                .offset(y: -20)
+            }
+            .environment(\.layoutDirection, .rightToLeft)
+        }
+    }
+}
+
+// MARK: - Invite Hint (التعليمات - الدعوات)
+struct InviteHintView: View {
+    var onContinue: () -> Void
+    var onDismiss: () -> Void
+    
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+                .onTapGesture { onDismiss() }
+            
+            VStack(spacing: 0) {
+                Image("logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 100)
+                    .zIndex(1)
+                    .offset(y: 8)
+                
+                VStack(alignment: .trailing, spacing: 8) {
+                    Text("التعليمات")
+                        .font(.appCaption)
+                        .foregroundColor(AppTheme.textSecondary)
+                    
+                    Text("الدعوات")
+                        .font(.appTitle(22))
+                        .foregroundColor(AppTheme.textPrimary)
+                    
+                    Rectangle()
+                        .fill(AppTheme.textSecondary.opacity(0.3))
+                        .frame(height: 1)
+                        .padding(.vertical, 4)
+                    
+                    Text("انتظر قبول الدعوات التي أرسلتها وبعدها ننطلق.")
+                        .font(.appBody)
+                        .foregroundColor(AppTheme.textPrimary)
+                        .multilineTextAlignment(.trailing)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    HStack(spacing: 12) {
+                        Button(action: onDismiss) {
+                            Text("إلغاء")
+                                .font(.appHeadline)
+                                .foregroundColor(AppTheme.textSecondary)
+                        }
+                        Button(action: onContinue) {
+                            Text("استمر")
+                                .font(.appHeadline)
+                                .foregroundColor(AppTheme.textOnAccent)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(AppTheme.accent)
+                                .cornerRadius(16)
+                        }
+                    }
+                    .padding(.top, 12)
+                }
+                .padding(24)
+                .frame(maxWidth: 320)
+                .background(AppTheme.surface)
+                .cornerRadius(20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(AppTheme.textPrimary.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+                .offset(y: -20)
+            }
+            .environment(\.layoutDirection, .rightToLeft)
+        }
+    }
+}
+
 #Preview {
     UsernameEntryView(
         username: .constant("Test"),
