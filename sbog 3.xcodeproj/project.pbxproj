@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		09ABC5BFB3A24061A575A7FB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA4D6BBE9F846F2A3626796 /* Models.swift */; };
 		1C4E042A22574F769564E218 /* LobbyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC7527C1E13F481682C9FA25 /* LobbyView.swift */; };
-		1E9F5C8A4B6D7E2F0A3C9D1B /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 7D3A2C5E9B4F6A1C8E0D2B7F /* Localizable.strings */; };
 		275E8ABC507B4EFEAEABD9F7 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EDB5A47B1E042DE94BF048A /* ContentView.swift */; };
 		2F20D48569464B10AC06AFC4 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132B29352301411D92B989D4 /* ProfileView.swift */; };
 		34E4809C6E3A4E69B964F3BD /* UsernameEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6EB04D525A47749616BD72 /* UsernameEntryView.swift */; };
@@ -48,9 +47,7 @@
 		132B29352301411D92B989D4 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2AA4D6BBE9F846F2A3626796 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		34888D3CC7DB4E089623DBED /* sbogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = sbogApp.swift; sourceTree = "<group>"; };
-		3A6B9C2D5E7F1A0B8C4D6E9F /* ar */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ar; path = ar.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3F6EB04D525A47749616BD72 /* UsernameEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsernameEntryView.swift; sourceTree = "<group>"; };
-		4C8D1F2A6B9E3C5D7F0A1B2C /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		5B460D6BC02E47C489F97121 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
 		6EDB5A47B1E042DE94BF048A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		83BC8306A58C4C7D94878F89 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
@@ -113,7 +110,6 @@
 				34888D3CC7DB4E089623DBED /* sbogApp.swift */,
 				6EDB5A47B1E042DE94BF048A /* ContentView.swift */,
 				9F2E3D4C5B6A79808F7E6D5C /* Theme.swift */,
-				7D3A2C5E9B4F6A1C8E0D2B7F /* Localizable.strings */,
 				2AA4D6BBE9F846F2A3626796 /* Models.swift */,
 				DF0D705C0A724B8999A2E1ED /* MultipeerService.swift */,
 				A1A3EA8DCB1F4A2A8786A760 /* GameManager.swift */,
@@ -209,7 +205,7 @@
 					};
 				};
 			};
-			buildConfigurationList = F509AA48B42448708091A58A /* Build configuration list for PBXProject "sbog" */;
+			buildConfigurationList = F509AA48B42448708091A58A /* Build configuration list for PBXProject "sbog 3" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = ar;
 			hasScannedForEncodings = 0;
@@ -234,7 +230,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1E9F5C8A4B6D7E2F0A3C9D1B /* Localizable.strings in Resources */,
 				A9AAF4C42EF19858005FE05F /* loser.mp3 in Resources */,
 				A9AAF4C62EF1A592005FE05F /* gameplaybackground.mp3 in Resources */,
 				D0A633FC2EF149A600098FE2 /* run.mp3 in Resources */,
@@ -294,19 +289,7 @@
 		};
 /* End PBXTargetDependency section */
 
-/* Begin PBXVariantGroup section */
-		7D3A2C5E9B4F6A1C8E0D2B7F /* Localizable.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				3A6B9C2D5E7F1A0B8C4D6E9F /* ar */,
-				4C8D1F2A6B9E3C5D7F0A1B2C /* en */,
-			);
-			name = Localizable.strings;
-			sourceTree = "<group>";
-		};
-/* End PBXVariantGroup section */
-
-/* Begin XCBuildConfiguration section */
+		/* Begin XCBuildConfiguration section */
 		5B5F84D24F684E93A73D05E5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -551,7 +534,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F509AA48B42448708091A58A /* Build configuration list for PBXProject "sbog" */ = {
+		F509AA48B42448708091A58A /* Build configuration list for PBXProject "sbog 3" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DDBCC9A666F04A769EDD9C3A /* Debug */,

@@ -15,7 +15,7 @@ struct MainPage: View {
     @State private var showLobby: Bool = false
     @State private var isHost: Bool = false
     @State private var showUsernameEntry: Bool = false
-    @State private var displayName: String = "الرحبو"
+    @State private var displayName: String = "ارحبو"
     
     var body: some View {
         NavigationView {

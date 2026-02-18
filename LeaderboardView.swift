@@ -184,11 +184,8 @@ struct LeaderboardView: View {
             ProfileView(
                 profileManager: profileManager,
                 onLogout: {
-                    // Close ProfileView first
                     showProfile = false
-                    // Set navigateToUsernameEntry before dismissing
                     navigateToUsernameEntry = true
-                    // Then dismiss LeaderboardView after a short delay
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         dismiss()
                     }
@@ -196,12 +193,9 @@ struct LeaderboardView: View {
             )
         }
         .onChange(of: showProfile) { oldValue, newValue in
-            // When profile sheet is dismissed, check if profile was cleared
             if oldValue == true && newValue == false {
                 if profileManager.currentProfile == nil {
-                    // Profile was cleared, navigate to UsernameEntryView
                     navigateToUsernameEntry = true
-                    // Then dismiss LeaderboardView after a short delay
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         dismiss()
                     }

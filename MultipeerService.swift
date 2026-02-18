@@ -24,6 +24,12 @@ class MultipeerService: NSObject, ObservableObject {
     @Published var isConnected: Bool = false
     @Published var pendingInvitationPeerID: MCPeerID?
     
+    /// اسم الداعي المعروض في تنبيه الدعوة (من discovery info إن وُجد)، بدل اسم الجهاز مثل "iPhone"
+    var pendingInvitationDisplayName: String? {
+        guard let peerID = pendingInvitationPeerID else { return nil }
+        return availablePeers.first(where: { $0.peerID == peerID })?.username ?? peerID.displayName
+    }
+    
     var username: String = ""
     var onMessageReceived: ((GameMessage) -> Void)?
     private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?

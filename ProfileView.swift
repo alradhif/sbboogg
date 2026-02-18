@@ -95,6 +95,7 @@ struct ProfileView: View {
                                     Text("Statistics")
                                         .font(.title2)
                                         .fontWeight(.semibold)
+                                        .foregroundStyle(Color.primary)
                                     LazyVGrid(
                                         columns: [
                                             GridItem(.flexible()),
@@ -253,9 +254,10 @@ struct ProfileView: View {
                 Text(value)
                     .font(.title2)
                     .fontWeight(.bold)
+                    .foregroundStyle(Color.primary)
                 Text(title)
                     .font(.caption)
-                    .foregroundColor(AppTheme.textSecondary)
+                    .foregroundStyle(Color.secondary)
             }
             .frame(maxWidth: .infinity)
             .padding()

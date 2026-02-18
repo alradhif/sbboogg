@@ -190,11 +190,12 @@ struct LobbyView: View {
                 multipeerService.rejectInvitation()
             }
         } message: {
-            if let peerID = multipeerService.pendingInvitationPeerID {
+            if multipeerService.pendingInvitationPeerID != nil {
+                let displayName = multipeerService.pendingInvitationDisplayName ?? multipeerService.pendingInvitationPeerID?.displayName ?? ""
                 Text(
                     String(
                         format: NSLocalizedString("%@ يريد  دعوتك لدخول اللعبـة", comment: ""),
-                        peerID.displayName
+                        displayName
                     )
                 )
             } else {

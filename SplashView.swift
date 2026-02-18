@@ -32,8 +32,8 @@ struct Splash: View {
 
             if splashScreen {
                 GeometryReader { geo in
-                    VStack(spacing: 12) {
-                        Spacer().frame(height: geo.size.height * 0.12)
+                    VStack(spacing: 13) {
+                        Spacer().frame(height: geo.size.height * 0.0)
 
                         Text("سـبٌوق")
                             .font(.appTitle(50))
@@ -93,7 +93,7 @@ struct SplashScreen: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 16) {
-                    Spacer().frame(height: geo.size.height * 0.05)
+                    Spacer().frame(height: geo.size.height * 0.27)
 
                     ZStack {
                         ZStack {
@@ -109,6 +109,7 @@ struct SplashScreen: View {
                         }
                         .scaleEffect(animateCircle ? 1 : 0.5)
                         .animation(.easeOut(duration: 1.5), value: animateCircle)
+                        .offset(x: -18)
                         .onAppear { animateCircle = true }
 
                         Image("Vector 9")
@@ -137,13 +138,13 @@ struct SplashScreen: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: geo.size.width * 1.2)
-                    .position(x: geo.size.width / 3, y: geo.size.height * 0.78)
+                    .position(x: geo.size.width / 3, y: geo.size.height * 0.08)
 
                 Image("logo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: geo.size.width * 0.7)
-                    .position(x: geo.size.width / 2, y: geo.size.height * 0.62)
+                    .position(x: geo.size.width / 2, y: geo.size.height * 0.57)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onAppear {
