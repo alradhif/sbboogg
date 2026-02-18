@@ -60,12 +60,14 @@ struct ProfileView: View {
                                     TextField("Username", text: $editedUsername)
                                         .textFieldStyle(RoundedBorderTextFieldStyle())
                                         .font(.title2)
+                                        .foregroundColor(.black)
                                         .multilineTextAlignment(.center)
                                         .padding(.horizontal, 40)
                                 } else {
                                     Text(profile.username)
                                         .font(.title)
                                         .fontWeight(.bold)
+                                        .foregroundColor(.black)
                                 }
 
                                 // أزرار التعديل
@@ -95,7 +97,7 @@ struct ProfileView: View {
                                     Text("Statistics")
                                         .font(.title2)
                                         .fontWeight(.semibold)
-                                        .foregroundStyle(Color.primary)
+                                        .foregroundColor(.black)
                                     LazyVGrid(
                                         columns: [
                                             GridItem(.flexible()),
@@ -146,7 +148,9 @@ struct ProfileView: View {
                                 VStack(spacing: 15) {
                                     HStack {
                                         Image(systemName: audioManager.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                                            .foregroundColor(.black)
                                         Text("Background Music")
+                                            .foregroundColor(.black)
                                         Spacer()
                                         Toggle(
                                             "",
@@ -176,7 +180,7 @@ struct ProfileView: View {
 
                             } else {
                                 Text("No profile found")
-                                    .foregroundColor(AppTheme.textSecondary)
+                                    .foregroundColor(.black)
                             }
 
                         }
@@ -254,10 +258,10 @@ struct ProfileView: View {
                 Text(value)
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(Color.primary)
+                    .foregroundColor(.black)
                 Text(title)
                     .font(.caption)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundColor(.black)
             }
             .frame(maxWidth: .infinity)
             .padding()
