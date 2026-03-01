@@ -64,6 +64,21 @@ struct GameView: View {
 //                    .padding(.top, 10)
 
                     HStack(spacing: 16) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("ابحث عن :")
+                                .font(.appHeadline)
+                                .foregroundColor(AppTheme.textPrimary)
+
+                            Text(arabicName(for: targetName))
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundColor(AppTheme.accent)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(AppTheme.accentSoft)
+                                .clipShape(Capsule())
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
                         ZStack(alignment: .topLeading) {
                             Image("cml")
                                 .resizable()
@@ -79,21 +94,6 @@ struct GameView: View {
                                 .clipShape(Capsule())
                                 .offset(x: -6, y: -6)
                         }
-
-                        VStack(alignment: .trailing, spacing: 10) {
-                            Text("ابحث عن :")
-                                .font(.appHeadline)
-                                .foregroundColor(AppTheme.textPrimary)
-
-                            Text(arabicName(for: targetName))
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(AppTheme.accent)
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 10)
-                                .background(AppTheme.accentSoft)
-                                .clipShape(Capsule())
-                        }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     .padding(.horizontal, 24)
 
