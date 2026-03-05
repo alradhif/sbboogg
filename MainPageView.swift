@@ -8,13 +8,17 @@
 
 
 import SwiftUI
+import SwiftData
 
 struct MainPage: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var multipeerService = MultipeerService()
+    @StateObject private var profileManager = ProfileManager()
     @State private var username: String = ""
     @State private var showLobby: Bool = false
     @State private var isHost: Bool = false
     @State private var showUsernameEntry: Bool = false
+    @State private var showSettings: Bool = false
     @State private var displayName: String = "ارحبو"
     
     var body: some View {
@@ -27,7 +31,9 @@ struct MainPage: View {
                     VStack(spacing: 0) {
                         HStack {
                             Spacer()
-                            Button(action: {}) {
+                            Button {
+                                showSettings = true
+                            } label: {
                                 Image(systemName: "gearshape.fill")
                                     .font(.system(size: 20, weight: .bold))
                                     .foregroundColor(AppTheme.accent)
@@ -40,7 +46,7 @@ struct MainPage: View {
                         .padding(.horizontal, 24)
                         .padding(.top, 12)
 
-                        Spacer().frame(height: geo.size.height * 0.05)
+                        Spacer().frame(height: geo.size.height * 0.07)
 
                         HStack(spacing: 16) {
                             Image("camel")
@@ -51,14 +57,14 @@ struct MainPage: View {
                             Text(displayName)
                                 .font(.system(size: 22, weight: .bold))
                                 .foregroundColor(AppTheme.accent)
-                                .padding(.horizontal, 28)
-                                .padding(.vertical, 14)
+                                .padding(.horizontal, 38)
+                                .padding(.vertical, 15)
                                 .background(AppTheme.accentSoft)
-                                .clipShape(Capsule())
-
+                                .clipShape(ChatBubble())
+                                .offset(y: 10)
                             Spacer()
                         }
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 34)
 
                         Spacer().frame(height: geo.size.height * 0.06)
 
@@ -115,7 +121,52 @@ struct MainPage: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
+            .onAppear {
+                profileManager.setModelContext(modelContext)
+                if let profile = profileManager.currentProfile {
+                    displayName = profile.username
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                ProfileView(profileManager: profileManager, onLogout: {
+                    showSettings = false
+                })
+            }
         }
+    }
+}
+
+// شكل فقاعة رسالة بذيل (يسار سفلي)
+struct ChatBubble: Shape {
+    var cornerRadius: CGFloat = 18
+    var tailSize: CGFloat = 10
+
+    func path(in rect: CGRect) -> Path {
+        let tw = tailSize * 1.4
+        let th = tailSize
+        let cr = min(cornerRadius, (rect.height - th) / 4, rect.width / 4)
+        let w = rect.width
+        let h = rect.height
+        let bodyBottom = h - th
+
+        var path = Path()
+        // بداية من أعلى اليسار بعد الانحناء
+        path.move(to: CGPoint(x: cr, y: 0))
+        path.addLine(to: CGPoint(x: w - cr, y: 0))
+        path.addArc(center: CGPoint(x: w - cr, y: cr), radius: cr,
+                    startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+        path.addLine(to: CGPoint(x: w, y: bodyBottom - cr))
+        path.addArc(center: CGPoint(x: w - cr, y: bodyBottom - cr), radius: cr,
+                    startAngle: .degrees(0), endAngle: .degrees(90), clockwise: false)
+        path.addLine(to: CGPoint(x: cr + tw, y: bodyBottom))
+        path.addLine(to: CGPoint(x: cr, y: h))
+        path.addLine(to: CGPoint(x: cr, y: bodyBottom))
+        path.addLine(to: CGPoint(x: 0, y: bodyBottom))
+        path.addLine(to: CGPoint(x: 0, y: cr))
+        path.addArc(center: CGPoint(x: cr, y: cr), radius: cr,
+                    startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        path.closeSubpath()
+        return path
     }
 }
 

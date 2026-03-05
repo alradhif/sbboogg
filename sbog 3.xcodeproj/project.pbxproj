@@ -289,7 +289,7 @@
 		};
 /* End PBXTargetDependency section */
 
-		/* Begin XCBuildConfiguration section */
+/* Begin XCBuildConfiguration section */
 		5B5F84D24F684E93A73D05E5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -370,7 +370,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww100000;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww10000;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -402,7 +402,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww100000;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww10000;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
