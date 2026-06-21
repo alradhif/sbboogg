@@ -62,12 +62,21 @@ class GameManager: ObservableObject {
             objectWillChange.send()
             print("👤 Added player: \(player.username) (peerID: \(player.peerID)) (Total: \(players.count))")
         } else {
-            // Update existing player's username if it changed
+            // Update existing player's username or avatar if changed
             if let index = players.firstIndex(where: { $0.peerID == player.peerID }) {
+                var didChange = false
                 if players[index].username != player.username {
                     players[index].username = player.username
-                    objectWillChange.send()
+                    didChange = true
                     print("🔄 Updated player username: \(player.username) (peerID: \(player.peerID))")
+                }
+                if players[index].avatarImageName != player.avatarImageName {
+                    players[index].avatarImageName = player.avatarImageName
+                    didChange = true
+                    print("🔄 Updated player avatar: \(player.avatarImageName) (peerID: \(player.peerID))")
+                }
+                if didChange {
+                    objectWillChange.send()
                 } else {
                     print("⚠️ Player already exists: \(player.username) (peerID: \(player.peerID))")
                 }
@@ -79,9 +88,33 @@ class GameManager: ObservableObject {
         players.removeAll { $0.peerID == peerID }
     }
     
+    func resetForLobby() {
+        timer?.invalidate()
+        timer = nil
+        isGameActive = false
+        gameEnded = false
+        currentRound = 0
+        currentChallenge = nil
+        timeRemaining = roundDuration
+        roundAnswers = [:]
+        roundFirstFinder = nil
+        roundEnded = false
+        leaderboard = []
+        players.removeAll()
+        objectWillChange.send()
+    }
+    
     func startGame() {
         guard multipeerService.isHost else { return }
-        guard players.count >= 2 && players.count <= 5 else { return }
+        guard multipeerService.connectedPeers.count >= 1 else {
+            print("⚠️ Cannot start: no connected guests")
+            return
+        }
+        let expectedPlayers = multipeerService.connectedPeers.count + 1
+        guard players.count >= 2 && players.count <= 5 && players.count == expectedPlayers else {
+            print("⚠️ Cannot start: player count \(players.count) != connected \(expectedPlayers)")
+            return
+        }
         
         isGameActive = true
         currentRound = 0
@@ -285,6 +318,7 @@ class GameManager: ObservableObject {
         case .playerJoined:
             // When a player joins, add them with their username
             if let peerID = message.playerID, let username = message.username {
+                let avatarImageName = PlayerAvatars.imageName(for: message.data["avatar"])
                 print("📨 Received playerJoined: \(username) (peerID: \(peerID))")
                 print("   Current players before: \(players.count)")
                 print("   Current player list: \(players.map { "\($0.username):\($0.peerID)" }.joined(separator: ", "))")
@@ -298,7 +332,8 @@ class GameManager: ObservableObject {
                         let player = Player(
                             username: username,
                             isHost: multipeerService.isHost,
-                            peerID: peerID
+                            peerID: peerID,
+                            avatarImageName: avatarImageName
                         )
                         addPlayer(player)
                         print("✅ Added self from message: \(username) (\(peerID))")
@@ -308,11 +343,19 @@ class GameManager: ObservableObject {
                 
                 // Check if player already exists by peerID
                 if let existingIndex = players.firstIndex(where: { $0.peerID == peerID }) {
-                    // Update username if it changed
+                    var didChange = false
                     if players[existingIndex].username != username {
                         players[existingIndex].username = username
-                        objectWillChange.send()
+                        didChange = true
                         print("✅ Updated player username: \(username) for peerID: \(peerID)")
+                    }
+                    if players[existingIndex].avatarImageName != avatarImageName {
+                        players[existingIndex].avatarImageName = avatarImageName
+                        didChange = true
+                        print("✅ Updated player avatar: \(avatarImageName) for peerID: \(peerID)")
+                    }
+                    if didChange {
+                        objectWillChange.send()
                     } else {
                         print("ℹ️ Player already exists with same username: \(username) (peerID: \(peerID))")
                     }
@@ -321,7 +364,8 @@ class GameManager: ObservableObject {
                     let player = Player(
                         username: username,
                         isHost: false,
-                        peerID: peerID
+                        peerID: peerID,
+                        avatarImageName: avatarImageName
                     )
                     addPlayer(player)
                     print("✅ Added NEW player from message: \(username) (\(peerID))")
@@ -337,6 +381,7 @@ class GameManager: ObservableObject {
             isGameActive = true
             currentRound = 0
             resetScores()
+            objectWillChange.send()
             
         case .question:
             if let objectName = message.data["object"],

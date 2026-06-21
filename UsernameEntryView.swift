@@ -37,6 +37,14 @@ struct UsernameEntryView: View {
             .accessibilityHidden(true)
             
             GeometryReader { geo in
+                Image("stig")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: geo.size.width * 1.1)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .offset(x: -12, y: 230)
+                    .allowsHitTesting(false)
+
                 ScrollView {
                     VStack(spacing: 24) {
                         HStack {
@@ -178,20 +186,24 @@ struct UsernameEntryView: View {
     
     func startAsHost() {
         guard !username.isEmpty else { return }
-        // Create or get profile for this username
-        _ = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
+        let profile = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
         isHost = true
-        multipeerService.startHosting(username: username.trimmingCharacters(in: .whitespaces))
+        multipeerService.startHosting(
+            username: username.trimmingCharacters(in: .whitespaces),
+            avatarImageName: profile.avatarImageName
+        )
         showLobby = true
     }
     
     func startAsGuest() {
         guard !username.isEmpty else { return }
-        // Create or get profile for this username
-        _ = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
+        let profile = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
         isHost = false
         isSearching = true
-        multipeerService.startBrowsing(username: username.trimmingCharacters(in: .whitespaces))
+        multipeerService.startBrowsing(
+            username: username.trimmingCharacters(in: .whitespaces),
+            avatarImageName: profile.avatarImageName
+        )
         
         // Wait a bit for discovery, then show lobby
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

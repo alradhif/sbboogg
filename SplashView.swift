@@ -21,7 +21,7 @@ struct Splash: View {
     
     var body: some View {
         ZStack {
-            AppTheme.accentSoft
+            Color(hex: "FFCB45")
                 .ignoresSafeArea()
 
             if splashScreen {
@@ -86,10 +86,10 @@ struct SplashScreen: View {
     
     var body: some View {
         GeometryReader { geo in
-            let circleSize = min(geo.size.width * 0.85, 380)
+            let circleSize = min(geo.size.width * 0.98, 460)
             let imageSize = min(geo.size.width * 0.45, 190)
             ZStack {
-                AppTheme.background
+                Color(hex: "FFCB45")
                     .ignoresSafeArea()
 
                 VStack(spacing: 16) {
@@ -98,14 +98,17 @@ struct SplashScreen: View {
                     ZStack {
                         ZStack {
                             Circle()
-                                .stroke(AppTheme.accentSoft, lineWidth: 80)
+                                .stroke(Color(hex: "FFC031"), lineWidth: 90)
                                 .frame(width: circleSize, height: circleSize)
                             Circle()
-                                .stroke(AppTheme.accentSoftSecondary, lineWidth: 60)
-                                .frame(width: circleSize * 0.85, height: circleSize)
+                                .stroke(Color(hex: "FFCF64"), lineWidth: 70)
+                                .frame(width: circleSize * 0.82, height: circleSize)
                             Circle()
-                                .stroke(AppTheme.accentSoftSecondary, lineWidth: 30)
-                                .frame(width: circleSize * 0.7, height: circleSize)
+                                .stroke(Color(hex: "FFD983"), lineWidth: 50)
+                                .frame(width: circleSize * 0.64, height: circleSize)
+                            Circle()
+                                .fill(Color(hex: "FDECC5"))
+                                .frame(width: circleSize * 0.55, height: circleSize)
                         }
                         .scaleEffect(animateCircle ? 1 : 0.5)
                         .animation(.easeOut(duration: 1.5), value: animateCircle)
@@ -113,14 +116,14 @@ struct SplashScreen: View {
                         .onAppear { animateCircle = true }
 
                         Image("Vector 9")
-                            .offset(x: -geo.size.width * 0.35, y: -geo.size.height * 0.12)
+                            .offset(x: -geo.size.width * 0.35, y: -geo.size.height * 0.24)
                             .opacity(book ? 1 : 0)
                             .scaleEffect(book ? 1 : 0)
                         Image("Vector 8")
-                            .offset(x: geo.size.width * 0.1, y: -geo.size.height * 0.08)
+                            .offset(x: geo.size.width * 0.1, y: -geo.size.height * 0.30)
                             .scaleEffect(book ? 1 : 0)
                     }
-                    .animation(.easeOut(duration: 2), value: book)
+                    .animation(.easeOut(duration: 1), value: book)
                     .onAppear { book = true }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -134,17 +137,24 @@ struct SplashScreen: View {
                     .offset(x: -12, y: geo.size.height * 0.40)
 
 
-                Image("logo1")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: geo.size.width * 1.2)
-                    .position(x: geo.size.width / 3, y: geo.size.height * 0.08)
-
                 Image("logo")
                     .resizable()
                     .scaledToFit()
                     .frame(width: geo.size.width * 0.7)
                     .position(x: geo.size.width / 2, y: geo.size.height * 0.57)
+
+                // إضاءة فوق السبلاش كامل
+                Image("logo1")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipped()
+                    .offset(y: geo.size.height * 0.30)
+                    .opacity(book ? 0.88 : 0)
+                    .scaleEffect(book ? 1 : 0.95)
+                    .blendMode(.screen)
+                    .animation(.easeOut(duration: 2.2), value: book)
+                    .allowsHitTesting(false)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onAppear {

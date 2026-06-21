@@ -15,13 +15,22 @@ final class Player: Identifiable {
     var score: Int
     var isHost: Bool
     var peerID: String
+    var avatarImageName: String = PlayerAvatars.defaultName
     
-    init(id: UUID = UUID(), username: String, score: Int = 0, isHost: Bool = false, peerID: String = "") {
+    init(
+        id: UUID = UUID(),
+        username: String,
+        score: Int = 0,
+        isHost: Bool = false,
+        peerID: String = "",
+        avatarImageName: String = PlayerAvatars.defaultName
+    ) {
         self.id = id
         self.username = username
         self.score = score
         self.isHost = isHost
         self.peerID = peerID
+        self.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
     }
 }
 
@@ -55,8 +64,20 @@ final class PlayerProfile: Identifiable {
     var gamesWon: Int
     var createdAt: Date
     var lastPlayed: Date
+    var avatarImageName: String = PlayerAvatars.defaultName
     
-    init(id: UUID = UUID(), username: String, totalGamesPlayed: Int = 0, totalScore: Int = 0, bestScore: Int = 0, averageScore: Double = 0.0, gamesWon: Int = 0, createdAt: Date = Date(), lastPlayed: Date = Date()) {
+    init(
+        id: UUID = UUID(),
+        username: String,
+        totalGamesPlayed: Int = 0,
+        totalScore: Int = 0,
+        bestScore: Int = 0,
+        averageScore: Double = 0.0,
+        gamesWon: Int = 0,
+        createdAt: Date = Date(),
+        lastPlayed: Date = Date(),
+        avatarImageName: String = PlayerAvatars.defaultName
+    ) {
         self.id = id
         self.username = username
         self.totalGamesPlayed = totalGamesPlayed
@@ -66,6 +87,7 @@ final class PlayerProfile: Identifiable {
         self.gamesWon = gamesWon
         self.createdAt = createdAt
         self.lastPlayed = lastPlayed
+        self.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
     }
     
     func updateStats(gameScore: Int, won: Bool) {

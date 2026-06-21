@@ -22,32 +22,96 @@ class MultipeerService: NSObject, ObservableObject {
     @Published var receivedMessage: GameMessage?
     @Published var isHost: Bool = false
     @Published var isConnected: Bool = false
+    @Published var pendingInvitations: [PendingInvitation] = []
     @Published var pendingInvitationPeerID: MCPeerID?
+    
+    struct PendingInvitation: Identifiable, Equatable {
+        let id: String
+        let peerID: MCPeerID
+        let username: String
+        
+        init(peerID: MCPeerID, username: String) {
+            self.id = peerID.displayName
+            self.peerID = peerID
+            self.username = username
+        }
+        
+        static func == (lhs: PendingInvitation, rhs: PendingInvitation) -> Bool {
+            lhs.id == rhs.id
+        }
+    }
     
     /// اسم الداعي المعروض في تنبيه الدعوة (من discovery info إن وُجد)، بدل اسم الجهاز مثل "iPhone"
     var pendingInvitationDisplayName: String? {
         guard let peerID = pendingInvitationPeerID else { return nil }
-        return availablePeers.first(where: { $0.peerID == peerID })?.username ?? peerID.displayName
+        return displayName(for: peerID)
     }
     
     var username: String = ""
+    var avatarImageName: String = PlayerAvatars.defaultName
     var onMessageReceived: ((GameMessage) -> Void)?
     private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
+    private var invitationHandlers: [String: (Bool, MCSession?) -> Void] = [:]
+    
+    private func displayName(for peerID: MCPeerID) -> String {
+        availablePeers.first(where: { $0.peerID == peerID })?.username ?? peerID.displayName
+    }
+    
+    private func removeInvitation(for peerID: MCPeerID) {
+        pendingInvitations.removeAll { $0.peerID == peerID }
+        invitationHandlers.removeValue(forKey: peerID.displayName)
+        if pendingInvitationPeerID == peerID {
+            pendingInvitationPeerID = pendingInvitations.first?.peerID
+            pendingInvitationHandler = pendingInvitations.first.flatMap { invitationHandlers[$0.peerID.displayName] }
+        }
+    }
+    
+    private func clearAllInvitations() {
+        pendingInvitations.removeAll()
+        invitationHandlers.removeAll()
+        pendingInvitationPeerID = nil
+        pendingInvitationHandler = nil
+    }
     
     struct AvailablePeer: Identifiable, Equatable {
         let id: String
         let peerID: MCPeerID
         let username: String
+        let avatarImageName: String
         
-        init(peerID: MCPeerID, username: String? = nil) {
+        init(peerID: MCPeerID, username: String? = nil, avatarImageName: String? = nil) {
             self.id = peerID.displayName
             self.peerID = peerID
             self.username = username ?? peerID.displayName
+            self.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
         }
         
         static func == (lhs: AvailablePeer, rhs: AvailablePeer) -> Bool {
-            lhs.id == rhs.id && lhs.username == rhs.username
+            lhs.id == rhs.id && lhs.username == rhs.username && lhs.avatarImageName == rhs.avatarImageName
         }
+    }
+    
+    func makePlayerJoinedMessage() -> GameMessage {
+        GameMessage(
+            type: .playerJoined,
+            data: ["avatar": avatarImageName],
+            playerID: myPeerID.displayName,
+            username: username,
+            score: nil,
+            answer: nil,
+            responseTime: nil
+        )
+    }
+    
+    private func discoveryInfo(isGuest: Bool = false) -> [String: String] {
+        var info = [
+            "username": username,
+            "avatar": avatarImageName
+        ]
+        if isGuest {
+            info["isGuest"] = "true"
+        }
+        return info
     }
     
     override init() {
@@ -60,8 +124,9 @@ class MultipeerService: NSObject, ObservableObject {
         super.init()
     }
     
-    func startHosting(username: String) {
+    func startHosting(username: String, avatarImageName: String = PlayerAvatars.defaultName) {
         self.username = username
+        self.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
         print("🔵 Host username set to: \(username)")
         self.isHost = true
         
@@ -69,7 +134,7 @@ class MultipeerService: NSObject, ObservableObject {
         session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .optional)
         session?.delegate = self
         
-        serviceAdvertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: ["username": username], serviceType: serviceType)
+        serviceAdvertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: discoveryInfo(), serviceType: serviceType)
         serviceAdvertiser?.delegate = self
         serviceAdvertiser?.startAdvertisingPeer()
         
@@ -82,8 +147,9 @@ class MultipeerService: NSObject, ObservableObject {
         print("🔵 Host started browsing for peers")
     }
     
-    func startBrowsing(username: String) {
+    func startBrowsing(username: String, avatarImageName: String = PlayerAvatars.defaultName) {
         self.username = username
+        self.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
         self.isHost = false
         
         // Use .optional encryption for better compatibility with physical devices
@@ -91,7 +157,7 @@ class MultipeerService: NSObject, ObservableObject {
         session?.delegate = self
         
         // Guests also need to advertise so they can receive invitations from host
-        serviceAdvertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: ["username": username, "isGuest": "true"], serviceType: serviceType)
+        serviceAdvertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: discoveryInfo(isGuest: true), serviceType: serviceType)
         serviceAdvertiser?.delegate = self
         serviceAdvertiser?.startAdvertisingPeer()
         
@@ -151,15 +217,7 @@ extension MultipeerService: MCSessionDelegate {
                         if self.username.isEmpty {
                             print("⚠️ WARNING: Username is empty! Cannot send playerJoined message")
                         } else {
-                            let joinMessage = GameMessage(
-                                type: .playerJoined,
-                                data: [:],
-                                playerID: self.myPeerID.displayName,
-                                username: self.username,
-                                score: nil,
-                                answer: nil,
-                                responseTime: nil
-                            )
+                            let joinMessage = self.makePlayerJoinedMessage()
                             do {
                                 let data = try JSONEncoder().encode(joinMessage)
                                 // Send to the newly connected peer
@@ -233,8 +291,14 @@ extension MultipeerService: MCNearbyServiceAdvertiserDelegate {
                     invitationHandler(false, nil)
                 }
             } else {
-                // Guests receive invitation - show alert to accept/reject
+                // Guests receive invitation — add to invitations list
                 print("📬 Guest received invitation from \(peerID.displayName)")
+                let inviterName = self.displayName(for: peerID)
+                let invitation = PendingInvitation(peerID: peerID, username: inviterName)
+                if !self.pendingInvitations.contains(where: { $0.peerID == peerID }) {
+                    self.pendingInvitations.append(invitation)
+                }
+                self.invitationHandlers[peerID.displayName] = invitationHandler
                 self.pendingInvitationPeerID = peerID
                 self.pendingInvitationHandler = invitationHandler
             }
@@ -246,17 +310,37 @@ extension MultipeerService: MCNearbyServiceAdvertiserDelegate {
     }
     
     func acceptInvitation() {
-        guard let handler = pendingInvitationHandler else { return }
+        guard let peerID = pendingInvitationPeerID else { return }
+        acceptInvitation(from: peerID)
+    }
+    
+    func acceptInvitation(from peerID: MCPeerID) {
+        guard let handler = invitationHandlers[peerID.displayName] else { return }
+        
+        if isConnected && !connectedPeers.isEmpty && !connectedPeers.contains(peerID) {
+            print("🔌 Disconnecting from previous host before accepting new invitation")
+            session?.disconnect()
+            connectedPeers.removeAll()
+            isConnected = false
+        }
+        
         handler(true, session)
-        pendingInvitationPeerID = nil
-        pendingInvitationHandler = nil
+        
+        for invitation in pendingInvitations where invitation.peerID != peerID {
+            invitationHandlers[invitation.peerID.displayName]?(false, nil)
+        }
+        clearAllInvitations()
     }
     
     func rejectInvitation() {
-        guard let handler = pendingInvitationHandler else { return }
+        guard let peerID = pendingInvitationPeerID else { return }
+        rejectInvitation(from: peerID)
+    }
+    
+    func rejectInvitation(from peerID: MCPeerID) {
+        guard let handler = invitationHandlers[peerID.displayName] else { return }
         handler(false, nil)
-        pendingInvitationPeerID = nil
-        pendingInvitationHandler = nil
+        removeInvitation(for: peerID)
     }
 }
 
@@ -268,19 +352,30 @@ extension MultipeerService: MCNearbyServiceBrowserDelegate {
             let isNotSelf = peerID != self.myPeerID
             
             if isNotConnected && isNotSelf {
-                // Get username from discovery info
+                // Get username and avatar from discovery info
                 let username = info?["username"] ?? peerID.displayName
+                let avatar = info?["avatar"]
                 
                 // Check if peer already exists
                 if let existingIndex = self.availablePeers.firstIndex(where: { $0.peerID == peerID }) {
-                    // Update existing peer with new username if available
-                    if let newUsername = info?["username"], newUsername != self.availablePeers[existingIndex].username {
-                        self.availablePeers[existingIndex] = AvailablePeer(peerID: peerID, username: newUsername)
+                    let existingPeer = self.availablePeers[existingIndex]
+                    let newUsername = info?["username"] ?? existingPeer.username
+                    let newAvatar = avatar ?? existingPeer.avatarImageName
+                    if newUsername != existingPeer.username || newAvatar != existingPeer.avatarImageName {
+                        self.availablePeers[existingIndex] = AvailablePeer(
+                            peerID: peerID,
+                            username: newUsername,
+                            avatarImageName: newAvatar
+                        )
                         print("📱 Updated peer: \(peerID.displayName) with username: \(newUsername)")
                     }
                 } else {
                     // Add new peer
-                    let availablePeer = AvailablePeer(peerID: peerID, username: username)
+                    let availablePeer = AvailablePeer(
+                        peerID: peerID,
+                        username: username,
+                        avatarImageName: avatar
+                    )
                     self.availablePeers.append(availablePeer)
                     print("📱 Found peer: \(peerID.displayName) with username: \(username)")
                     print("📱 Total available peers: \(self.availablePeers.count)")
@@ -298,6 +393,10 @@ extension MultipeerService: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         DispatchQueue.main.async {
             self.availablePeers.removeAll { $0.peerID == peerID }
+            if self.pendingInvitations.contains(where: { $0.peerID == peerID }) {
+                self.invitationHandlers[peerID.displayName]?(false, nil)
+                self.removeInvitation(for: peerID)
+            }
             print("📱 Lost peer: \(peerID.displayName)")
         }
     }

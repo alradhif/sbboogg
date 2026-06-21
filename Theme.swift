@@ -23,6 +23,18 @@ enum AppTheme {
     static let error = Color(hex: "C62828")
 }
 
+enum PlayerAvatars {
+    static let options = ["player1", "player2", "player3", "player4"]
+    static let defaultName = "player1"
+    
+    static func imageName(for storedName: String?) -> String {
+        guard let storedName, options.contains(storedName) else {
+            return defaultName
+        }
+        return storedName
+    }
+}
+
 extension Font {
     static func appTitle(_ size: CGFloat, weight: Font.Weight = .bold) -> Font {
         .system(size: size, weight: weight, design: .rounded)

@@ -21,7 +21,14 @@ struct sbogApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            print("⚠️ ModelContainer load failed: \(error). Resetting local store...")
+            Self.deleteStoreFiles(at: modelConfiguration.url)
+
+            do {
+                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create ModelContainer after reset: \(error)")
+            }
         }
     }()
 
@@ -31,5 +38,17 @@ struct sbogApp: App {
         }
         .modelContainer(sharedModelContainer)
     }
-}
 
+    private static func deleteStoreFiles(at storeURL: URL) {
+        let fileManager = FileManager.default
+        let relatedURLs = [
+            storeURL,
+            URL(fileURLWithPath: storeURL.path + "-shm"),
+            URL(fileURLWithPath: storeURL.path + "-wal")
+        ]
+
+        for url in relatedURLs where fileManager.fileExists(atPath: url.path) {
+            try? fileManager.removeItem(at: url)
+        }
+    }
+}

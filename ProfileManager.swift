@@ -89,6 +89,17 @@ class ProfileManager: ObservableObject {
         }
     }
     
+    func updateAvatar(_ avatarImageName: String) {
+        guard let profile = currentProfile, let context = modelContext else { return }
+        profile.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
+        do {
+            try context.save()
+            objectWillChange.send()
+        } catch {
+            print("Error updating avatar: \(error)")
+        }
+    }
+    
     func updateUsername(oldUsername: String, newUsername: String) {
         guard let context = modelContext else { return }
         

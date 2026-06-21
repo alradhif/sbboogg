@@ -25,8 +25,10 @@ struct ProfileView: View {
 
     @State private var isEditing: Bool = false
     @State private var editedUsername: String = ""
+    @State private var selectedAvatar: String = PlayerAvatars.defaultName
     @State private var showLeaderboard: Bool = false
     @State private var navigateToUsernameEntry: Bool = false
+    @State private var book: Bool = false
 
     init(
         profileManager: ProfileManager,
@@ -39,19 +41,63 @@ struct ProfileView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                AppTheme.background
+                Color(hex: "FAC438")
                     .ignoresSafeArea()
 
                 GeometryReader { geo in
-                    ScrollView {
-                        VStack(spacing: 30) {
+                    ZStack {
+                        Image("stig")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: geo.size.width * 1.1)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                            .offset(x: -12, y: 300)
+                            .allowsHitTesting(false)
 
+                        Image("logo1")
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                            .offset(x: 10, y: geo.size.height * 0.30)
+                            .opacity(book ? 0.88 : 0)
+                            .scaleEffect(book ? 1 : 0.95)
+                            .blendMode(.screen)
+                            .animation(.easeOut(duration: 2.2), value: book)
+                            .allowsHitTesting(false)
+
+                        ScrollView {
+                            VStack(spacing: 30) {
                             // صورة البروفايل
-                            Image("profile")
+                            Image(selectedAvatar)
                                 .resizable()
                                 .scaledToFit()
                                 .frame(height: min(geo.size.height * 0.22, 180))
+                                .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.top, 20)
+                            
+                            HStack(spacing: 12) {
+                                ForEach(PlayerAvatars.options, id: \.self) { avatarName in
+                                    Button {
+                                        selectedAvatar = avatarName
+                                        profileManager.updateAvatar(avatarName)
+                                    } label: {
+                                        Image(avatarName)
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 52, height: 52)
+                                            .clipShape(Circle())
+                                            .overlay(
+                                                Circle()
+                                                    .stroke(
+                                                        selectedAvatar == avatarName ? AppTheme.accent : Color.clear,
+                                                        lineWidth: 3
+                                                    )
+                                            )
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
 
                             if let profile = profileManager.currentProfile {
 
@@ -68,6 +114,7 @@ struct ProfileView: View {
                                         .font(.title)
                                         .fontWeight(.bold)
                                         .foregroundColor(.black)
+                                        .frame(maxWidth: .infinity, alignment: .center)
                                 }
 
                                 // أزرار التعديل
@@ -184,12 +231,16 @@ struct ProfileView: View {
                             }
 
                         }
-                        .frame(maxWidth: .infinity) // 👈 يناسب كل المقاسات
-                        .padding()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 20)
                         .frame(minHeight: geo.size.height)
+                        }
+                        .offset(x: -20)
                     }
                 }
             }
+            .toolbarBackground(Color(hex: "FAC438"), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
@@ -210,6 +261,10 @@ struct ProfileView: View {
             }
             .onAppear {
                 profileManager.setModelContext(modelContext)
+                if let profile = profileManager.currentProfile {
+                    selectedAvatar = PlayerAvatars.imageName(for: profile.avatarImageName)
+                }
+                book = true
             }
         }
         .fullScreenCover(isPresented: $navigateToUsernameEntry) {

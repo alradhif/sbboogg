@@ -8,131 +8,184 @@
 
 
 import SwiftUI
-import SwiftData
+import AVKit
 
 struct MainPage: View {
-    @Environment(\.modelContext) private var modelContext
-    @StateObject private var multipeerService = MultipeerService()
-    @StateObject private var profileManager = ProfileManager()
-    @State private var username: String = ""
-    @State private var showLobby: Bool = false
-    @State private var isHost: Bool = false
-    @State private var showUsernameEntry: Bool = false
-    @State private var showSettings: Bool = false
-    @State private var displayName: String = "ارحبو"
+    @State private var showMain2: Bool = false
+    @State private var ghostsFloating: Bool = false
+    
+    private func goToNextPage() {
+        withAnimation(.easeInOut(duration: 0.35)) {
+            showMain2 = true
+        }
+    }
     
     var body: some View {
         NavigationView {
             ZStack {
-                AppTheme.background
+                Image("s2")
+                    .resizable()
+                    .scaledToFill()
                     .ignoresSafeArea()
 
                 GeometryReader { geo in
-                    VStack(spacing: 0) {
-                        HStack {
-                            Spacer()
-                            Button {
-                                showSettings = true
-                            } label: {
-                                Image(systemName: "gearshape.fill")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(AppTheme.accent)
-                                    .frame(width: 44, height: 44)
-                                    .background(AppTheme.surface)
-                                    .clipShape(Circle())
-                                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-                            }
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.top, 12)
-
-                        Spacer().frame(height: geo.size.height * 0.07)
-
-                        HStack(spacing: 16) {
-                            Image("camel")
+                    ZStack {
+                        // الأشباح — خلف الجمل والنص، تتحرك سوا ذهاباً وإياباً
+                        ZStack {
+                            Image("ghost1")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 90, height: 140)
+                                .frame(width: geo.size.width * 0.34)
+                                .position(x: geo.size.width * 0.10, y: geo.size.height * 0.40)
 
-                            Text(displayName)
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(AppTheme.accent)
-                                .padding(.horizontal, 38)
-                                .padding(.vertical, 15)
-                                .background(AppTheme.accentSoft)
-                                .clipShape(ChatBubble())
-                                .offset(y: 10)
-                            Spacer()
+                            Image("ghost2")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: geo.size.width * 0.22)
+                                .position(x: geo.size.width * 0.80, y: geo.size.height * 0.56)
                         }
-                        .padding(.horizontal, 34)
-
-                        Spacer().frame(height: geo.size.height * 0.06)
-
-                        Text("جاهز؟ سجل دخولك وابدأ اللعب")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(AppTheme.textPrimary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-
-                        Spacer().frame(height: geo.size.height * 0.06)
-
-                        Button {
-                            showUsernameEntry = true
-                        } label: {
-                            Text("دخول")
-                                .font(.system(size: 22, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(AppTheme.accent)
-                                    
-                            
-                        
-                                
-                                .cornerRadius(28)
-                                .shadow(color: Color.black.opacity(0.2), radius: 6, x: 0, y: 3)
-                        }
-                        .padding(.horizontal, 40)
-
-                        Spacer()
-
-                        NavigationLink(
-                            "",
-                            destination: UsernameEntryView(
-                                username: $username,
-                                showLobby: $showLobby,
-                                isHost: $isHost,
-                                multipeerService: multipeerService
-                            ),
-                            isActive: $showUsernameEntry
+                        .offset(
+                            x: ghostsFloating ? 16 : -16,
+                            y: ghostsFloating ? -8 : 8
                         )
-                        .hidden()
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+                                ghostsFloating = true
+                            }
+                        }
+
+                        LoopingVideoPlayer(videoName: "scared")
+                            .frame(width: min(geo.size.width * 0.62, 280), height: min(geo.size.width * 1.12, 400))
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.50)
+
+                        Image("stig")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: geo.size.width * 1.1)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                            .offset(x: -12, y: 160)
+
+                        Image("ghost3")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: geo.size.width * 0.22)
+                            .opacity(0.85)
+                            .position(x: geo.size.width * 0.44, y: geo.size.height * 0.70)
+                            .offset(
+                                x: ghostsFloating ? 16 : -16,
+                                y: ghostsFloating ? -8 : 8
+                            )
+
+                        VStack(spacing: 0) {
+                            HStack {
+                                Spacer()
+                                Button("تخطي") {
+                                    goToNextPage()
+                                }
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(AppTheme.textPrimary)
+                            }
+                            .padding(.horizontal, 68)
+                            .padding(.top, 20)
+
+                            Spacer().frame(height: geo.size.height * 0.10)
+
+                            VStack(spacing: 4) {
+                                Text("الهدوء مو أمان")
+                                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color(hex: "84332D"))
+
+                                Text("دايم في أحد يحاول يسبقك !")
+                                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color(hex: "84332D"))
+                            }
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 64)
+
+                            Spacer()
+
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(AppTheme.accent)
+                                    .frame(width: 9, height: 9)
+
+                                Button {
+                                    goToNextPage()
+                                } label: {
+                                    Circle()
+                                        .fill(Color(hex: "F4C7C3"))
+                                        .frame(width: 9, height: 9)
+                                        .padding(14)
+                                        .contentShape(Circle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.95))
+                            .clipShape(Capsule())
+                            .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
+                            .padding(.bottom, geo.size.height * 0.06)
+                            .offset(x: -14)
+                        }
 
                         NavigationLink(
                             "",
-                            destination: LobbyView(
-                                multipeerService: multipeerService,
-                                isHost: isHost
-                            ),
-                            isActive: $showLobby
+                            destination: Main2(),
+                            isActive: $showMain2
                         )
                         .hidden()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 40)
+                            .onEnded { value in
+                                // سحب لليسار = الصفحة التالية (زي السحب)
+                                if value.translation.width < -50 {
+                                    goToNextPage()
+                                }
+                            }
+                    )
                 }
             }
-            .onAppear {
-                profileManager.setModelContext(modelContext)
-                if let profile = profileManager.currentProfile {
-                    displayName = profile.username
-                }
-            }
-            .sheet(isPresented: $showSettings) {
-                ProfileView(profileManager: profileManager, onLogout: {
-                    showSettings = false
-                })
-            }
+            .navigationBarHidden(true)
+            .navigationBarBackButtonHidden(true)
         }
+    }
+}
+
+// فيديو متحرك يتكرر (بدل صورة cry)
+struct LoopingVideoPlayer: UIViewControllerRepresentable {
+    let videoName: String
+
+    func makeUIViewController(context: Context) -> AVPlayerViewController {
+        let controller = AVPlayerViewController()
+        controller.showsPlaybackControls = false
+        controller.view.backgroundColor = .clear
+        controller.videoGravity = .resizeAspect
+
+        guard let url = Bundle.main.url(forResource: videoName, withExtension: "mp4") else {
+            return controller
+        }
+
+        let player = AVQueuePlayer()
+        let item = AVPlayerItem(url: url)
+        context.coordinator.looper = AVPlayerLooper(player: player, templateItem: item)
+        controller.player = player
+        player.play()
+
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: AVPlayerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    final class Coordinator {
+        var looper: AVPlayerLooper?
     }
 }
 

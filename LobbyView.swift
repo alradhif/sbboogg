@@ -20,7 +20,7 @@ struct LobbyView: View {
     @StateObject private var profileManager = ProfileManager()
     @State private var showGame: Bool = false
     @State private var showLeaderboard: Bool = false
-    @State private var showInvitationAlert: Bool = false
+    @State private var showInvitations: Bool = false
     @State private var playerCount: Int = 0
     let isHost: Bool
     
@@ -44,7 +44,7 @@ struct LobbyView: View {
                         .scaledToFit()
                         .frame(width: geo.size.width * 1.1, height: geo.size.height * 0.77) // زيادة بنسبة 10%
                         .padding(.bottom, 0)
-                        .offset(x: -12, y: geo.size.height * 0.50)
+                        .offset(x: -12, y: geo.size.height * 0.60)
                 
                     
                 
@@ -119,9 +119,9 @@ struct LobbyView: View {
         .onAppear {
             profileManager.setModelContext(modelContext)
             gameManager.setProfileManager(profileManager)
+            gameManager.setupMessageHandling()
             setupLobby()
             playerCount = gameManager.players.count
-            // Start background music when entering lobby
             BackgroundMusicManager.shared.startBackgroundMusic()
         }
         .onChange(of: multipeerService.connectedPeers) { peers in
@@ -132,16 +132,7 @@ struct LobbyView: View {
             
             // Send our playerJoined message to all newly connected peers
             if !peers.isEmpty && !multipeerService.username.isEmpty {
-                let joinMessage = GameMessage(
-                    type: .playerJoined,
-                    data: [:],
-                    playerID: multipeerService.myPeerID.displayName,
-                    username: multipeerService.username,
-                    score: nil,
-                    answer: nil,
-                    responseTime: nil
-                )
-                multipeerService.sendMessage(joinMessage)
+                multipeerService.sendMessage(multipeerService.makePlayerJoinedMessage())
                 print("📤 Sent playerJoined message to \(peers.count) connected peers")
             }
         }
@@ -161,7 +152,7 @@ struct LobbyView: View {
         }
         .onChange(of: gameManager.isGameActive) { active in
             if active {
-                // Start background music when game starts
+                showInvitations = false
                 BackgroundMusicManager.shared.startBackgroundMusic()
                 showGame = true
             }
@@ -177,29 +168,21 @@ struct LobbyView: View {
         .fullScreenCover(isPresented: $showLeaderboard) {
             LeaderboardView(gameManager: gameManager, multipeerService: multipeerService)
         }
-        .onChange(of: multipeerService.pendingInvitationPeerID) { peerID in
-            if peerID != nil && !isHost {
-                showInvitationAlert = true
+        .onChange(of: multipeerService.pendingInvitations.count) { count in
+            if count > 0 && !isHost {
+                showInvitations = true
+            } else {
+                showInvitations = false
             }
         }
-        .alert("دعـــوة", isPresented: $showInvitationAlert) {
-            Button("قبول") {
-                multipeerService.acceptInvitation()
+        .onChange(of: multipeerService.isConnected) { connected in
+            if connected && !isHost {
+                showInvitations = false
             }
-            Button("رفض", role: .cancel) {
-                multipeerService.rejectInvitation()
-            }
-        } message: {
-            if multipeerService.pendingInvitationPeerID != nil {
-                let displayName = multipeerService.pendingInvitationDisplayName ?? multipeerService.pendingInvitationPeerID?.displayName ?? ""
-                Text(
-                    String(
-                        format: NSLocalizedString("%@ يريد  دعوتك لدخول اللعبـة", comment: ""),
-                        displayName
-                    )
-                )
-            } else {
-                Text("لقد تم دعوتك لدخول اللعبة")
+        }
+        .fullScreenCover(isPresented: $showInvitations) {
+            InvitationsView(multipeerService: multipeerService) {
+                showInvitations = false
             }
         }
     }
@@ -225,7 +208,7 @@ struct LobbyView: View {
             Spacer()
             
             // Camel icon
-            Image("camel")
+            Image(multipeerService.avatarImageName)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 40, height: 40)
@@ -239,8 +222,7 @@ struct LobbyView: View {
             // All players (including host)
             ForEach(gameManager.players, id: \.id) { player in
                 HStack(spacing: 12) {
-                    // Camel avatar
-                    Image("camel")
+                    Image(player.avatarImageName)
                         .resizable()
                         .scaledToFit()
                         .frame(width: 40, height: 40)
@@ -279,10 +261,14 @@ struct LobbyView: View {
     }
     
     private var canStartGame: Bool {
-        // Use state variable for reactive updates
-        let count = playerCount > 0 ? playerCount : gameManager.players.count
-        let canStart = count >= 2 && count <= 5
-        print("🎮 Can start game? Players: \(count) (state: \(playerCount), actual: \(gameManager.players.count)), Can start: \(canStart)")
+        let connectedGuestCount = multipeerService.connectedPeers.count
+        let lobbyCount = playerCount > 0 ? playerCount : gameManager.players.count
+        let canStart = isHost
+            && connectedGuestCount >= 1
+            && lobbyCount >= 2
+            && lobbyCount <= 5
+            && lobbyCount == connectedGuestCount + 1
+        print("🎮 Can start game? connectedGuests: \(connectedGuestCount), lobby: \(lobbyCount), canStart: \(canStart)")
         return canStart
     }
     
@@ -303,7 +289,7 @@ struct LobbyView: View {
             multipeerService.sendInvite(to: availablePeer.peerID)
         }) {
             HStack(spacing: 8) {
-                Image("camel")
+                Image(availablePeer.avatarImageName)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 30, height: 30)
@@ -336,33 +322,47 @@ struct LobbyView: View {
                     .font(.system(size: 14))
                     .foregroundColor(AppTheme.warning)
             }
+            
+            if !multipeerService.pendingInvitations.isEmpty {
+                Button(action: { showInvitations = true }) {
+                    HStack(spacing: 8) {
+                        Text("الدعوات")
+                            .font(.appHeadline)
+                        Text("(\(multipeerService.pendingInvitations.count))")
+                            .font(.appCaption)
+                    }
+                    .foregroundColor(AppTheme.textOnAccent)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.accent)
+                    .cornerRadius(14)
+                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+                }
+                .padding(.top, 8)
+            }
         }
     }
     
     func setupLobby() {
+        gameManager.resetForLobby()
+        
         // Add current player
         let currentPlayer = Player(
             username: multipeerService.username,
             isHost: isHost,
-            peerID: multipeerService.myPeerID.displayName
+            peerID: multipeerService.myPeerID.displayName,
+            avatarImageName: multipeerService.avatarImageName
         )
         print("🏠 Setting up lobby - adding current player: \(multipeerService.username) (peerID: \(multipeerService.myPeerID.displayName))")
         gameManager.addPlayer(currentPlayer)
         playerCount = gameManager.players.count
         print("🏠 Lobby setup complete - total players: \(gameManager.players.count), state: \(playerCount)")
         
+        updatePlayers(peers: multipeerService.connectedPeers)
+        
         // Send playerJoined message to all connected peers (if any)
         if !multipeerService.connectedPeers.isEmpty {
-            let joinMessage = GameMessage(
-                type: .playerJoined,
-                data: [:],
-                playerID: multipeerService.myPeerID.displayName,
-                username: multipeerService.username,
-                score: nil,
-                answer: nil,
-                responseTime: nil
-            )
-            multipeerService.sendMessage(joinMessage)
+            multipeerService.sendMessage(multipeerService.makePlayerJoinedMessage())
             print("📤 Sent initial playerJoined message to \(multipeerService.connectedPeers.count) peers")
         }
     }
@@ -398,19 +398,23 @@ print("   Current players in gameManager: \(gameManager.players.count)")
             
             // Try to get username from availablePeers (where we stored it from discovery info)
             let username: String
+            let avatarImageName: String
             if let availablePeer = multipeerService.availablePeers.first(where: { $0.peerID == peer }) {
                 username = availablePeer.username
+                avatarImageName = availablePeer.avatarImageName
                 print("   📝 Found username from availablePeers: \(username)")
             } else {
                 // Fallback to peer display name if not found (will be updated when playerJoined message arrives)
                 username = peerDisplayName
+                avatarImageName = PlayerAvatars.defaultName
                 print("   ⚠️ Username not found, using displayName: \(username)")
             }
             
             let player = Player(
                 username: username,
                 isHost: false,
-                peerID: peerDisplayName
+                peerID: peerDisplayName,
+                avatarImageName: avatarImageName
             )
             gameManager.addPlayer(player)
             print("✅ Added player to lobby (placeholder): \(username) (\(peerDisplayName))")
@@ -430,6 +434,7 @@ print("   Current players in gameManager: \(gameManager.players.count)")
         let afterRemove = gameManager.players.count
         if beforeRemove != afterRemove {
             print("🗑️ Removed \(beforeRemove - afterRemove) disconnected players")
+            gameManager.objectWillChange.send()
         }
         
         print("📊 Final player count: \(gameManager.players.count)")
