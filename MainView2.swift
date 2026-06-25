@@ -5,19 +5,29 @@
 
 import SwiftUI
 import AVKit
+import SwiftData
 
 struct Main2: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var multipeerService = MultipeerService()
+    @StateObject private var profileManager = ProfileManager()
     @State private var username: String = ""
     @State private var showLobby: Bool = false
     @State private var isHost: Bool = false
+    @State private var showProfileSetup: Bool = false
     @State private var showUsernameEntry: Bool = false
     @State private var book: Bool = false
 
     private func goToNextPage() {
+        profileManager.setModelContext(modelContext)
         withAnimation(.easeInOut(duration: 0.35)) {
-            showUsernameEntry = true
+            if let profile = profileManager.currentProfile {
+                username = profile.username
+                showUsernameEntry = true
+            } else {
+                showProfileSetup = true
+            }
         }
     }
 
@@ -38,7 +48,7 @@ struct Main2: View {
                     ZStack {
                         LoopingVideoPlayer(videoName: "happy")
                             .frame(width: min(geo.size.width * 0.62, 280), height: min(geo.size.width * 1.12, 900))
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.55)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.56)
 
                         Image("stig")
                             .resizable()
@@ -56,8 +66,9 @@ struct Main2: View {
                                 .font(.system(size: 18, weight: .medium))
                                 .foregroundColor(AppTheme.textPrimary)
                             }
-                            .padding(.horizontal, 68)
-                            .padding(.top, 70)
+                            .environment(\.layoutDirection, .leftToRight)
+                            .padding(.horizontal, 35)
+                            .padding(.top, 60)
 
                             Spacer().frame(height: geo.size.height * 0.10)
 
@@ -117,6 +128,17 @@ struct Main2: View {
 
                         NavigationLink(
                             "",
+                            destination: ProfileView(
+                                profileManager: profileManager,
+                                isInitialSetup: true,
+                                multipeerService: multipeerService
+                            ),
+                            isActive: $showProfileSetup
+                        )
+                        .hidden()
+
+                        NavigationLink(
+                            "",
                             destination: UsernameEntryView(
                                 username: $username,
                                 showLobby: $showLobby,
@@ -167,5 +189,9 @@ struct Main2_Previews: PreviewProvider {
         NavigationView {
             Main2()
         }
+        .modelContainer(
+            for: [Player.self, GameSession.self, PlayerProfile.self],
+            inMemory: true
+        )
     }
 }

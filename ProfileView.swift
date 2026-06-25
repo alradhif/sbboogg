@@ -21,232 +21,118 @@ struct ProfileView: View {
     @ObservedObject private var audioManager = BackgroundMusicManager.shared
     @Environment(\.dismiss) private var dismiss
 
+    var isInitialSetup: Bool = false
+    var multipeerService: MultipeerService?
     var onLogout: (() -> Void)?
 
     @State private var isEditing: Bool = false
     @State private var editedUsername: String = ""
+    @State private var setupName: String = ""
     @State private var selectedAvatar: String = PlayerAvatars.defaultName
     @State private var showLeaderboard: Bool = false
     @State private var navigateToUsernameEntry: Bool = false
-    @State private var book: Bool = false
+    @State private var setupUsername: String = ""
+    @State private var showLobby: Bool = false
+    @State private var isHost: Bool = false
 
     init(
         profileManager: ProfileManager,
+        isInitialSetup: Bool = false,
+        multipeerService: MultipeerService? = nil,
         onLogout: (() -> Void)? = nil
     ) {
         self.profileManager = profileManager
+        self.isInitialSetup = isInitialSetup
+        self.multipeerService = multipeerService
         self.onLogout = onLogout
     }
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                Color(hex: "FAC438")
-                    .ignoresSafeArea()
+        Group {
+            if isInitialSetup {
+                profileScreen
+            } else {
+                NavigationView {
+                    profileScreen
+                }
+                .navigationViewStyle(.stack)
+            }
+        }
+        .environment(\.layoutDirection, .leftToRight)
+        .fullScreenCover(isPresented: Binding(
+            get: { !isInitialSetup && navigateToUsernameEntry },
+            set: { navigateToUsernameEntry = $0 }
+        )) {
+            NavigationView {
+                UsernameEntryView(
+                    username: .constant(""),
+                    showLobby: .constant(false),
+                    isHost: .constant(false),
+                    multipeerService: MultipeerService()
+                )
+            }
+        }
+    }
 
-                GeometryReader { geo in
-                    ZStack {
-                        Image("stig")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: geo.size.width * 1.1)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                            .offset(x: -12, y: 300)
-                            .allowsHitTesting(false)
+    private var profileScreen: some View {
+        ZStack {
+            Color(hex: "FFCB45")
+                .ignoresSafeArea()
 
-                        Image("logo1")
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: geo.size.width, height: geo.size.height)
-                            .clipped()
-                            .offset(x: 10, y: geo.size.height * 0.30)
-                            .opacity(book ? 0.88 : 0)
-                            .scaleEffect(book ? 1 : 0.95)
-                            .blendMode(.screen)
-                            .animation(.easeOut(duration: 2.2), value: book)
-                            .allowsHitTesting(false)
+            GeometryReader { geo in
+                ZStack(alignment: .center) {
+                    Image("stig")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: geo.size.width * 1.1)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                        .offset(y: 300)
+                        .allowsHitTesting(false)
 
-                        ScrollView {
-                            VStack(spacing: 30) {
-                            // صورة البروفايل
-                            Image(selectedAvatar)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(height: min(geo.size.height * 0.22, 180))
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.top, 20)
-                            
-                            HStack(spacing: 12) {
-                                ForEach(PlayerAvatars.options, id: \.self) { avatarName in
-                                    Button {
-                                        selectedAvatar = avatarName
-                                        profileManager.updateAvatar(avatarName)
-                                    } label: {
-                                        Image(avatarName)
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(width: 52, height: 52)
-                                            .clipShape(Circle())
-                                            .overlay(
-                                                Circle()
-                                                    .stroke(
-                                                        selectedAvatar == avatarName ? AppTheme.accent : Color.clear,
-                                                        lineWidth: 3
-                                                    )
-                                            )
-                                    }
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
+                    Image("logo1")
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .offset(y: geo.size.height * -0.10)
+                        .opacity(0.88)
+                        .blendMode(.screen)
+                        .allowsHitTesting(false)
 
-                            if let profile = profileManager.currentProfile {
-
-                                // الاسم
-                                if isEditing {
-                                    TextField("Username", text: $editedUsername)
-                                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                                        .font(.title2)
-                                        .foregroundColor(.black)
-                                        .multilineTextAlignment(.center)
-                                        .padding(.horizontal, 40)
-                                } else {
-                                    Text(profile.username)
-                                        .font(.title)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.black)
-                                        .frame(maxWidth: .infinity, alignment: .center)
-                                }
-
-                                // أزرار التعديل
-                                HStack(spacing: 20) {
-                                    if isEditing {
-                                        Button("Save") {
-                                            saveUsername()
-                                        }
-                                        .buttonStyle(.borderedProminent)
-
-                                        Button("Cancel") {
-                                            cancelEdit()
-                                        }
-                                        .buttonStyle(.bordered)
-                                    } else {
-                                        Button("Edit Name") {
-                                            startEditing()
-                                        }
-                                        .buttonStyle(.bordered)
-                                    }
-                                }
-
-                                Divider()
-
-                                // الإحصائيات
-                                VStack(spacing: 20) {
-                                    Text("Statistics")
-                                        .font(.title2)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(.black)
-                                    LazyVGrid(
-                                        columns: [
-                                            GridItem(.flexible()),
-                                            GridItem(.flexible())
-                                        ],
-                                        spacing: 20
-                                    ) {
-                                        StatCard(title: "Games Played", value: "\(profile.totalGamesPlayed)")
-                                        StatCard(title: "Best Score", value: "\(profile.bestScore)")
-                                        StatCard(title: "Total Score", value: "\(profile.totalScore)")
-                                        StatCard(title: "Games Won", value: "\(profile.gamesWon)")
-                                        StatCard(
-                                            title: "Average Score",
-                                            value: String(format: "%.1f", profile.averageScore)
-                                        )
-                                        StatCard(
-                                            title: "Win Rate",
-                                            value: profile.totalGamesPlayed > 0
-                                                ? String(
-                                                    format: "%.1f%%",
-                                                    Double(profile.gamesWon) / Double(profile.totalGamesPlayed) * 100
-                                                )
-                                                : "0%"
-                                        )
-                                    }
-                                }
-
-                                Divider()
-
-                                // Leaderboard Button
-                                NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) { HStack {
-                                        Image(systemName: "trophy.fill")
-                                            .foregroundColor(AppTheme.textOnAccent)
-                                        Text("Leaderboard")
-                                            .font(.headline)
-                                            .foregroundColor(AppTheme.textOnAccent)
-                                    }
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(AppTheme.accent)
-                                    .cornerRadius(12)
-                                }
-                                .padding(.horizontal)
-
-                                Divider()
-
-                                // الصوت
-                                VStack(spacing: 15) {
-                                    HStack {
-                                        Image(systemName: audioManager.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                                            .foregroundColor(.black)
-                                        Text("Background Music")
-                                            .foregroundColor(.black)
-                                        Spacer()
-                                        Toggle(
-                                            "",
-                                            isOn: Binding(
-                                                get: { !audioManager.isMuted },
-                                                set: { audioManager.setMuted(!$0) }
-                                            )
-                                        )
-                                        .labelsHidden()
-                                    }
-
-                                    if !audioManager.isMuted {
-                                        Slider(
-                                            value: Binding(
-                                                get: { Double(audioManager.volume) },
-                                                set: { audioManager.setVolume(Float($0)) }
-                                            ),
-                                            in: 0...1
-                                        )
-                                    }
-                                }
-                                .padding()
-                                .background(AppTheme.surface)
-                                .cornerRadius(12)
-
-                                Spacer(minLength: 40)
-
+                    ScrollView {
+                        VStack(spacing: 22) {
+                            if isInitialSetup && profileManager.currentProfile == nil {
+                                profileSetupContent
+                            } else if let profile = profileManager.currentProfile {
+                                profileMainContent(profile: profile)
                             } else {
-                                Text("No profile found")
+                                Text("ما فيه ملف شخصي")
                                     .foregroundColor(.black)
+                                    .frame(maxWidth: .infinity, alignment: .center)
                             }
-
                         }
+                        .frame(maxWidth: min(geo.size.width - 48, 360))
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.horizontal, 20)
-                        .frame(minHeight: geo.size.height)
-                        }
-                        .offset(x: -20)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 8)
+                        .padding(.bottom, 24)
+                        .frame(minHeight: geo.size.height, alignment: .top)
                     }
                 }
+                .frame(width: geo.size.width, height: geo.size.height)
             }
-            .toolbarBackground(Color(hex: "FAC438"), for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
+        }
+        .navigationBarHidden(isInitialSetup)
+        .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            if !isInitialSetup {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
                         profileManager.clearCurrentProfile()
                         BackgroundMusicManager.shared.stopBackgroundMusic()
                         dismiss()
+                        onLogout?()
                         navigateToUsernameEntry = true
                     } label: {
                         Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -259,24 +145,38 @@ struct ProfileView: View {
                     }
                 }
             }
-            .onAppear {
-                profileManager.setModelContext(modelContext)
-                if let profile = profileManager.currentProfile {
-                    selectedAvatar = PlayerAvatars.imageName(for: profile.avatarImageName)
-                }
-                book = true
-            }
         }
-        .fullScreenCover(isPresented: $navigateToUsernameEntry) {
-            NavigationView {
-                UsernameEntryView(
-                    username: .constant(""),
-                    showLobby: .constant(false),
-                    isHost: .constant(false),
-                    multipeerService: MultipeerService()
+        .background {
+            if isInitialSetup, let service = multipeerService {
+                NavigationLink(
+                    "",
+                    destination: UsernameEntryView(
+                        username: $setupUsername,
+                        showLobby: $showLobby,
+                        isHost: $isHost,
+                        multipeerService: service
+                    ),
+                    isActive: $navigateToUsernameEntry
                 )
+                .hidden()
             }
         }
+        .onAppear {
+            profileManager.setModelContext(modelContext)
+            if let profile = profileManager.currentProfile {
+                selectedAvatar = PlayerAvatars.imageName(for: profile.avatarImageName)
+            }
+        }
+    }
+
+    func completeSetup() {
+        let trimmed = setupName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, multipeerService != nil else { return }
+
+        _ = profileManager.getOrCreateProfile(username: trimmed)
+        profileManager.updateAvatar(selectedAvatar)
+        setupUsername = trimmed
+        navigateToUsernameEntry = true
     }
 
     // MARK: - Functions
@@ -303,26 +203,361 @@ struct ProfileView: View {
         isEditing = false
     }
 
-    // MARK: - Stat Card
-    struct StatCard: View {
-        let title: String
-        let value: String
+    // MARK: - Profile Content
 
-        var body: some View {
+    private var profileSetupContent: some View {
+        VStack(spacing: 22) {
+            profileHeroImage(size: 130)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            Text("أنشئ ملفك")
+                .font(.title2)
+                .fontWeight(.bold)
+                .foregroundColor(.black)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            setupNameCapsule
+
+            avatarPickerSection(score: 999, allowAll: true)
+
+            Button {
+                completeSetup()
+            } label: {
+                Text("متابعة")
+                    .font(.headline)
+                    .foregroundColor(AppTheme.textOnAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        setupName.trimmingCharacters(in: .whitespaces).isEmpty
+                            ? Color.gray
+                            : AppTheme.accent
+                    )
+                    .clipShape(Capsule())
+            }
+            .disabled(setupName.trimmingCharacters(in: .whitespaces).isEmpty)
+
+            Spacer(minLength: 40)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 16)
+    }
+
+    private func profileMainContent(profile: PlayerProfile) -> some View {
+        VStack(spacing: 22) {
+            profileHeroImage(size: 120)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            usernameCapsule(profile: profile)
+
+            statsRow(profile: profile)
+
+            levelProgressSection(score: profile.totalScore)
+
+            avatarPickerSection(score: profile.totalScore, allowAll: false)
+
+            NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) {
+                Text("التصنيف")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+                    .foregroundColor(AppTheme.textOnAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(AppTheme.accent)
+                    .clipShape(Capsule())
+            }
+
+            musicSection
+
+            Spacer(minLength: 48)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 8)
+    }
+
+    private func profileHeroImage(size: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(Color.white)
+                .frame(width: size, height: size)
+            Image(selectedAvatar)
+                .resizable()
+                .scaledToFit()
+                .padding(size * 0.08)
+                .frame(width: size, height: size)
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white, lineWidth: 3))
+        .shadow(color: Color.black.opacity(0.12), radius: 8, y: 4)
+    }
+
+    private var setupNameCapsule: some View {
+        HStack {
+            Spacer(minLength: 0)
+            TextField("اسم السبوق", text: $setupName)
+                .font(.body)
+                .fontWeight(.semibold)
+                .foregroundColor(.black)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.white)
+                .clipShape(Capsule())
+                .frame(minWidth: 140, maxWidth: 220)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func usernameCapsule(profile: PlayerProfile) -> some View {
+        HStack {
+            Spacer(minLength: 0)
+            HStack(spacing: 10) {
+                if isEditing {
+                    TextField("اسم السبوق", text: $editedUsername)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black)
+                        .multilineTextAlignment(.center)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                        .frame(minWidth: 100, maxWidth: 160)
+
+                    Button {
+                        saveUsername()
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(AppTheme.accent)
+                    }
+
+                    Button {
+                        cancelEdit()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                } else {
+                    Text(profile.username)
+                        .font(.body)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.black)
+                        .lineLimit(1)
+
+                    Button {
+                        startEditing()
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.body)
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(Color.white)
+            .clipShape(Capsule())
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func statsRow(profile: PlayerProfile) -> some View {
+        HStack(spacing: 0) {
+            statItem(value: "\(profile.totalScore)", title: "النقاط")
+            Rectangle()
+                .fill(AppTheme.textSecondary.opacity(0.25))
+                .frame(width: 1, height: 44)
+            statItem(value: "\(profile.totalGamesPlayed)", title: "شوط")
+        }
+        .padding(.vertical, 8)
+        .frame(maxWidth: 280)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func statItem(value: String, title: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title)
+                .fontWeight(.bold)
+                .foregroundColor(.black)
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func levelProgressSection(score: Int) -> some View {
+        let level = ProfileLevel.currentLevel(score: score)
+        let nextLevel = min(level + 1, ProfileLevel.maxLevel + 1)
+        let threshold = ProfileLevel.nextThreshold(currentLevel: level)
+        let progress = min(1.0, Double(score) / Double(threshold))
+
+        return VStack(alignment: .center, spacing: 6) {
+            Text("المستوى \(level)")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(AppTheme.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            HStack(spacing: 6) {
+                levelBadge(number: level, filled: true)
+
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.55))
+                    GeometryReader { barGeo in
+                        Capsule()
+                            .fill(AppTheme.accent)
+                            .frame(width: max(0, barGeo.size.width * progress))
+                    }
+                    Text("\(score)/\(threshold)")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .padding(.leading, 8)
+                }
+                .frame(height: 18)
+                .frame(maxWidth: .infinity)
+
+                levelBadge(number: nextLevel, filled: false)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 8)
+        }
+        .frame(maxWidth: 300)
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func levelBadge(number: Int, filled: Bool) -> some View {
+        Text("\(number)")
+            .font(.caption2)
+            .fontWeight(.bold)
+            .foregroundColor(filled ? AppTheme.textPrimary : AppTheme.textSecondary)
+            .frame(width: 22, height: 22)
+            .background(filled ? AppTheme.accentSoft : Color.white.opacity(0.7))
+            .clipShape(Circle())
+    }
+
+    private func avatarPickerSection(score: Int, allowAll: Bool) -> some View {
+        VStack(alignment: .center, spacing: 12) {
+            Text("اختر فارس الميدان :")
+                .font(.headline)
+                .fontWeight(.semibold)
+                .foregroundColor(.black)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    Spacer(minLength: 0)
+                    ForEach(1...ProfileLevel.maxLevel, id: \.self) { level in
+                        let avatarName = PlayerAvatars.avatar(forLevel: level)
+                        let unlocked = allowAll || ProfileLevel.isUnlocked(level: level, score: score)
+                        AvatarLevelCard(
+                            level: level,
+                            avatarName: avatarName,
+                            isSelected: selectedAvatar == avatarName,
+                            isUnlocked: unlocked
+                        ) {
+                            guard unlocked else { return }
+                            selectedAvatar = avatarName
+                            if profileManager.currentProfile != nil {
+                                profileManager.updateAvatar(avatarName)
+                            }
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 2)
+                .padding(.vertical, 4)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private var musicSection: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: audioManager.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.subheadline)
+                    .foregroundColor(.black)
+                Text("موسيقى الخلفية")
+                    .font(.subheadline)
+                    .foregroundColor(.black)
+                Spacer()
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { !audioManager.isMuted },
+                        set: { audioManager.setMuted(!$0) }
+                    )
+                )
+                .labelsHidden()
+                .scaleEffect(0.85)
+            }
+
+            if !audioManager.isMuted {
+                Slider(
+                    value: Binding(
+                        get: { Double(audioManager.volume) },
+                        set: { audioManager.setVolume(Float($0)) }
+                    ),
+                    in: 0...1
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.65))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+// MARK: - Avatar Level Card
+private struct AvatarLevelCard: View {
+    let level: Int
+    let avatarName: String
+    let isSelected: Bool
+    let isUnlocked: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
             VStack(spacing: 8) {
-                Text(value)
+                Text("المستوى")
+                    .font(.caption)
+                    .foregroundColor(AppTheme.textSecondary)
+                Text("\(level)")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.black)
-                Text(title)
-                    .font(.caption)
-                    .foregroundColor(.black)
+
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 72, height: 72)
+                    Image(avatarName)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(6)
+                        .frame(width: 72, height: 72)
+                }
+                .opacity(isUnlocked ? 1 : 0.35)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(AppTheme.surface)
-            .cornerRadius(10)
+            .frame(width: 108, height: 148)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(isSelected ? AppTheme.accent : Color.clear, lineWidth: 3)
+            )
+            .shadow(color: Color.black.opacity(0.06), radius: 4, y: 2)
         }
+        .buttonStyle(.plain)
+        .disabled(!isUnlocked)
     }
 }
 
@@ -345,78 +580,81 @@ struct AllPlayersLeaderboardView: View {
                 Text("التصنيف")
                     .font(.largeTitle)
                     .fontWeight(.bold)
+                    .foregroundColor(.black)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 20)
                 
                 if allProfiles.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "trophy")
                             .font(.system(size: 60))
-                            .foregroundColor(AppTheme.textSecondary)
-                        Text("No players yet")
+                            .foregroundColor(.black)
+                        Text("ما فيه لاعبون بعد")
                             .font(.title2)
-                            .foregroundColor(AppTheme.textSecondary)
-                        Text("Play games to see leaderboard")
+                            .foregroundColor(.black)
+                            .multilineTextAlignment(.center)
+                        Text("العب عشان تشوف التصنيف")
                             .font(.caption)
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(.black)
+                            .multilineTextAlignment(.center)
                     }
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
                 } else {
                     List {
                         ForEach(Array(allProfiles.enumerated()), id: \.element.id) { index, profile in
-                            HStack {
+                            HStack(alignment: .center, spacing: 12) {
                                 Text("#\(index + 1)")
                                     .font(.title2)
                                     .fontWeight(.bold)
-                                    .foregroundColor(getRankColor(index: index))
-                                    .frame(width: 50)
-                                
-                                VStack(alignment: .leading, spacing: 4) {
+                                    .foregroundColor(.black)
+                                    .frame(width: 36, alignment: .center)
+
+                                VStack(alignment: .center, spacing: 4) {
                                     Text(profile.username)
                                         .font(.headline)
-                                    Text(
-                                        String(
-                                            format: NSLocalizedString("%d games • Best: %d", comment: ""),
-                                            profile.totalGamesPlayed,
-                                            profile.bestScore
-                                        )
-                                    )
+                                        .lineLimit(1)
+                                        .multilineTextAlignment(.center)
+                                    HStack(spacing: 4) {
+                                        Text("\(profile.totalGamesPlayed) لعبة")
+                                        Text("•")
+                                        Text("الأفضل: \(profile.bestScore)")
+                                    }
                                     .font(.caption)
-                                    .foregroundColor(AppTheme.textSecondary)
+                                    .multilineTextAlignment(.center)
                                 }
-                                
-                                Spacer()
-                                
-                                VStack(alignment: .trailing, spacing: 4) {
+                                .foregroundColor(.black)
+                                .frame(maxWidth: .infinity, alignment: .center)
+
+                                VStack(alignment: .center, spacing: 2) {
                                     Text("\(profile.bestScore)")
                                         .font(.title3)
                                         .fontWeight(.semibold)
-                                        .foregroundColor(getRankColor(index: index))
-                                    Text("pts")
+                                    Text("نقطة")
                                         .font(.caption)
-                                        .foregroundColor(AppTheme.textSecondary)
                                 }
+                                .foregroundColor(.black)
+                                .frame(width: 48, alignment: .center)
                             }
+                            .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.vertical, 8)
-                            .listRowBackground(index < 3 ? getRankColor(index: index).opacity(0.1) : Color.clear)
+                            .listRowBackground(index == 0 ? AppTheme.accentSoft.opacity(0.35) : AppTheme.surface)
                         }
                     }
-                    .listStyle(PlainListStyle())
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .foregroundColor(.black)
             .padding()
         }
+        .environment(\.colorScheme, .light)
+        .environment(\.layoutDirection, .leftToRight)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             allProfiles = profileManager.getAllProfiles()
-        }
-    }
-    
-    func getRankColor(index: Int) -> Color {
-        switch index {
-        case 0: return .yellow
-        case 1: return .gray
-        case 2: return Color(red: 0.8, green: 0.5, blue: 0.2)
-        default: return .primary
         }
     }
 }

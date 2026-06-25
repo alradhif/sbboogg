@@ -33,6 +33,32 @@ enum PlayerAvatars {
         }
         return storedName
     }
+    
+    static func level(for avatarName: String) -> Int {
+        (options.firstIndex(of: avatarName) ?? 0) + 1
+    }
+    
+    static func avatar(forLevel level: Int) -> String {
+        options[max(0, min(options.count - 1, level - 1))]
+    }
+}
+
+enum ProfileLevel {
+    static let maxLevel = 4
+    static let pointsPerLevel = 100
+    
+    /// المستوى ١ فوق ١٠٠، المستوى ٢ فوق ٢٠٠، ...
+    static func currentLevel(score: Int) -> Int {
+        max(1, min(maxLevel, score / pointsPerLevel))
+    }
+    
+    static func nextThreshold(currentLevel: Int) -> Int {
+        (currentLevel + 1) * pointsPerLevel
+    }
+    
+    static func isUnlocked(level: Int, score: Int) -> Bool {
+        level == 1 || score >= level * pointsPerLevel
+    }
 }
 
 extension Font {

@@ -62,11 +62,7 @@ struct LeaderboardView: View {
                     } else {
                         ZStack {
                             // صورة لاعب في الخلفية
-                            Image("لاعب")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: heroWidth, height: heroHeight)
-                                .offset(y: -20)
+                         
                             
                             // صورة loser مع الأنيميشن
                             Image("loserImage")
@@ -90,52 +86,59 @@ struct LeaderboardView: View {
                     Text("النتائج النهائية")
                         .font(.largeTitle)
                         .fontWeight(.bold)
+                        .foregroundColor(.black)
+                        .multilineTextAlignment(.center)
                         .padding(.top, 10)
                     
                     Text("التصنيف")
                         .font(.title2)
-                        .foregroundColor(AppTheme.textSecondary)
+                        .foregroundColor(.black)
+                        .multilineTextAlignment(.center)
                     
                     if gameManager.leaderboard.isEmpty {
                         Text("لايوجد نتائج")
-                            .foregroundColor(AppTheme.textSecondary)
+                            .foregroundColor(.black)
                             .padding()
                     } else {
                         List {
                             ForEach(Array(gameManager.leaderboard.enumerated()), id: \.element.id) { index, player in
-                                HStack {
-                                    
-                                    // Rank
+                                HStack(alignment: .center, spacing: 12) {
                                     Text("#\(index + 1)")
                                         .font(.title2)
                                         .fontWeight(.bold)
-                                        .foregroundColor(getRankColor(index: index))
-                                        .frame(width: 50)
-                                    
-                                    // Player name
-                                    VStack(alignment: .leading) {
+                                        .foregroundColor(.black)
+                                        .frame(width: 36, alignment: .center)
+
+                                    VStack(alignment: .center, spacing: 4) {
                                         Text(player.username)
                                             .font(.headline)
+                                            .lineLimit(1)
+                                            .multilineTextAlignment(.center)
                                         if player.isHost {
-                                            Text("Host")
+                                            Text("مضيف")
                                                 .font(.caption)
-                                                .foregroundColor(AppTheme.accent)
                                         }
                                     }
-                                    
-                                    Spacer()
-                                    
-                                    // Score
-                                    Text(String(format: NSLocalizedString("%d pts", comment: ""), player.score))
-                                        .font(.title3)
-                                        .fontWeight(.semibold)
-                                        .foregroundColor(getRankColor(index: index))
+                                    .foregroundColor(.black)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+
+                                    HStack(spacing: 4) {
+                                        Text("\(player.score)")
+                                            .font(.title3)
+                                            .fontWeight(.semibold)
+                                        Text("نقطة")
+                                            .font(.subheadline)
+                                    }
+                                    .foregroundColor(.black)
+                                    .frame(width: 72, alignment: .center)
                                 }
+                                .frame(maxWidth: .infinity, alignment: .center)
                                 .padding(.vertical, 8)
-                                .listRowBackground(index == 0 ? Color.yellow.opacity(0.2) : Color.clear)
+                                .listRowBackground(index == 0 ? AppTheme.accentSoft.opacity(0.35) : AppTheme.surface)
                             }
                         }
-                        .listStyle(PlainListStyle())
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
                     }
                     
                     Button(action: {
@@ -157,11 +160,14 @@ struct LeaderboardView: View {
                     .padding(.bottom, 20)
                 }
                     .padding()
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, alignment: .center)
                     .frame(minHeight: geo.size.height)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
         }
+        .environment(\.colorScheme, .light)
         .onAppear {
             profileManager.setModelContext(modelContext)
             checkIfWinner()
@@ -226,19 +232,6 @@ struct LeaderboardView: View {
         
         if let firstPlayer = gameManager.leaderboard.first {
             isWinner = (firstPlayer.username == multipeerService.username)
-        }
-    }
-    
-    func getRankColor(index: Int) -> Color {
-        switch index {
-        case 0:
-            return .yellow
-        case 1:
-            return .gray
-        case 2:
-            return Color(red: 0.8, green: 0.5, blue: 0.2)
-        default:
-            return .primary
         }
     }
 }

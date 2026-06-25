@@ -56,7 +56,7 @@ struct MainPage: View {
 
                         LoopingVideoPlayer(videoName: "scared")
                             .frame(width: min(geo.size.width * 0.62, 280), height: min(geo.size.width * 1.12, 400))
-                            .position(x: geo.size.width / 2, y: geo.size.height * 0.50)
+                            .position(x: geo.size.width / 2, y: geo.size.height * 0.51)
 
                         Image("stig")
                             .resizable()
@@ -85,8 +85,9 @@ struct MainPage: View {
                                 .font(.system(size: 18, weight: .medium))
                                 .foregroundColor(AppTheme.textPrimary)
                             }
-                            .padding(.horizontal, 68)
-                            .padding(.top, 20)
+                            .environment(\.layoutDirection, .leftToRight)
+                            .padding(.horizontal, 35)
+                            .padding(.top, 60)
 
                             Spacer().frame(height: geo.size.height * 0.10)
 

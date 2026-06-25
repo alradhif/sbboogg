@@ -21,6 +21,11 @@ struct UsernameEntryView: View {
     @State private var showProfile: Bool = false
     @State private var showJoinHint: Bool = false
     @State private var showInviteHint: Bool = false
+    @State private var usernameFromProfile: Bool = false
+    
+    private var profileAvatarName: String {
+        PlayerAvatars.imageName(for: profileManager.currentProfile?.avatarImageName)
+    }
     
     var body: some View {
         ZStack {
@@ -52,9 +57,20 @@ struct UsernameEntryView: View {
                             Button(action: {
                                 showProfile = true
                             }) {
-                                Image("Ellipse 12")
-                                    .font(.title2)
-                                    .foregroundColor(AppTheme.accent)
+                                if usernameFromProfile {
+                                    Image(profileAvatarName)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 44, height: 44)
+                                        .background(Color.white)
+                                        .clipShape(Circle())
+                                        .overlay(Circle().stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
+                                } else {
+                                    Image("Ellipse 12")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 44, height: 44)
+                                }
                             }
                             .padding(.trailing, 20)
                             .padding(.top, 10)
@@ -64,19 +80,32 @@ struct UsernameEntryView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(height: min(geo.size.height * 0.25, 240))
+                            .padding(.horizontal, usernameFromProfile ? 80 : 0)
 
                         VStack(spacing: 10) {
-                            TextField("أسم السبوق", text: $username)
-                                .textFieldStyle(RoundedBorderTextFieldStyle())
-                                .cornerRadius(38)
-                                .padding(.horizontal, 40)
-                                .textInputAutocapitalization(.never)
-                                .disableAutocorrection(true)
+                            if usernameFromProfile {
+                                Text(username)
+                                    .font(.title2)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(AppTheme.textPrimary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 40)
+                                    .background(AppTheme.surface)
+                                    .cornerRadius(38)
+                            } else {
+                                TextField("أسم السبوق", text: $username)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    .cornerRadius(38)
+                                    .padding(.horizontal, 40)
+                                    .textInputAutocapitalization(.never)
+                                    .disableAutocorrection(true)
 
-                            if username.isEmpty {
-                                Text("Please enter a username")
-                                    .foregroundColor(AppTheme.error)
-                                    .font(.appCaption)
+                                if username.isEmpty {
+                                    Text("الرجاء إدخال اسم المستخدم")
+                                        .foregroundColor(AppTheme.error)
+                                        .font(.appCaption)
+                                }
                             }
                         }
 
@@ -152,36 +181,40 @@ struct UsernameEntryView: View {
             }
         }
         .sheet(isPresented: $showProfile) {
-                    ProfileView(
-                        profileManager: profileManager,
-                        onLogout: {
-                            profileManager.clearCurrentProfile()
-                            username = ""
-                            showLobby = false
-                            isHost = false
-                            showProfile = false
-                        }
-                    )
-                }
-        .onChange(of: showProfile) { oldValue, newValue in
-            // When sheet is dismissed, check if profile was cleared
-            if oldValue == true && newValue == false {
-                if profileManager.currentProfile == nil {
+            ProfileView(
+                profileManager: profileManager,
+                onLogout: {
+                    profileManager.clearCurrentProfile()
                     username = ""
-                    // Ensure we're on UsernameEntryView
+                    usernameFromProfile = false
+                    showLobby = false
+                    isHost = false
+                    showProfile = false
+                }
+            )
+            .environment(\.layoutDirection, .leftToRight)
+        }
+        .onAppear {
+            profileManager.setModelContext(modelContext)
+            if let profile = profileManager.currentProfile {
+                username = profile.username
+                usernameFromProfile = true
+            }
+        }
+        .onChange(of: showProfile) { oldValue, newValue in
+            if oldValue == true && newValue == false {
+                if let profile = profileManager.currentProfile {
+                    username = profile.username
+                    usernameFromProfile = true
+                } else {
+                    username = ""
+                    usernameFromProfile = false
                     showLobby = false
                     isHost = false
                 }
             }
         }
         .navigationBarBackButtonHidden(true)
-        .onAppear {
-            profileManager.setModelContext(modelContext)
-            // Load existing profile if available
-            if let profile = profileManager.currentProfile {
-                username = profile.username
-            }
-        }
     }
     
     func startAsHost() {
