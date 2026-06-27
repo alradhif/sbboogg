@@ -66,10 +66,10 @@ struct UsernameEntryView: View {
                                         .clipShape(Circle())
                                         .overlay(Circle().stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
                                 } else {
-                                    Image("Ellipse 12")
-                                        .resizable()
-                                        .scaledToFit()
+                                    Circle()
+                                        .fill(Color.white)
                                         .frame(width: 44, height: 44)
+                                        .overlay(Circle().stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
                                 }
                             }
                             .padding(.trailing, 20)

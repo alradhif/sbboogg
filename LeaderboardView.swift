@@ -14,205 +14,88 @@ struct LeaderboardView: View {
     @ObservedObject var multipeerService: MultipeerService
     @Environment(\.modelContext) private var modelContext
     @StateObject private var profileManager = ProfileManager()
-    @State private var showProfile = false
     @State private var navigateToUsernameEntry = false
-    @Environment(\.dismiss) var dismiss
-    
-    // ⭐️ هل اللاعب فائز؟
-    @State private var isWinner: Bool = false
-    @State private var animate: Bool = false
-    
+    @State private var animateHero = false
+    @Environment(\.dismiss) private var dismiss
+
+    private var winner: Player? {
+        gameManager.leaderboard.first
+    }
+
+    private var runnersUp: [Player] {
+        Array(gameManager.leaderboard.dropFirst())
+    }
+
+    private var currentPlayer: Player? {
+        gameManager.leaderboard.first(where: { $0.username == multipeerService.username })
+    }
+
+    private var currentPlayerRank: Int? {
+        gameManager.leaderboard.firstIndex(where: { $0.username == multipeerService.username }).map { $0 + 1 }
+    }
+
+    private var displayNameForLoser: String? {
+        if let username = currentPlayer?.username {
+            return username
+        }
+        let username = multipeerService.username
+        return username.isEmpty ? nil : username
+    }
+
+    private var userIsWinner: Bool {
+        guard !multipeerService.username.isEmpty,
+              let first = gameManager.leaderboard.first else { return false }
+        return first.username == multipeerService.username
+    }
+
     var body: some View {
-        NavigationView {
-            ZStack {
-                AppTheme.background.ignoresSafeArea()
-                
-                GeometryReader { geo in
-                    let heroWidth = min(geo.size.width * 0.9, 420)
-                    let heroHeight = min(geo.size.height * 0.25, 220)
-                    VStack(spacing: 30) {
-                    
-                    // ⭐️ صورة الفائز / الخاسر مع الأنيميشن
-                    if isWinner {
-                        ZStack {
-                            // صورة winnerRed في الخلفية
-                            Image("winnerImage")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: heroWidth, height: heroHeight)
-                                .offset(y: -20)
-                            
-                            // صورة winner مع الأنيميشن
-                            Image("winnerImage")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: heroWidth * 0.55, height: heroHeight * 1.2)
-                                .shadow(radius: 10)
-                                .rotation3DEffect(
-                                    Angle(degrees: animate ? 180 : 0),
-                                    axis: (x: 0.0, y: 1.0, z: 0.0)
-                                )
-                                .onAppear {
-                                    withAnimation(.interpolatingSpring(stiffness: 30, damping: 3).repeatForever()) {
-                                        animate.toggle()
-                                    }
-                                }
-                        }
-                        .padding(.top, 20)
-                    } else {
-                        ZStack {
-                            // صورة لاعب في الخلفية
-                         
-                            
-                            // صورة loser مع الأنيميشن
-                            Image("loserImage")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: heroWidth * 0.6, height: heroHeight * 1.3)
-                                .shadow(radius: 10)
-                                .rotation3DEffect(
-                                    Angle(degrees: animate ? 180 : 0),
-                                    axis: (x: 0.0, y: 1.0, z: 0.0)
-                                )
-                                .onAppear {
-                                    withAnimation(.interpolatingSpring(stiffness: 30, damping: 3).repeatForever()) {
-                                        animate.toggle()
-                                    }
-                                }
-                        }
-                        .padding(.top, 20)
-                    }
-                    
-                    Text("النتائج النهائية")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundColor(.black)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 10)
-                    
-                    Text("التصنيف")
-                        .font(.title2)
-                        .foregroundColor(.black)
-                        .multilineTextAlignment(.center)
-                    
-                    if gameManager.leaderboard.isEmpty {
-                        Text("لايوجد نتائج")
-                            .foregroundColor(.black)
-                            .padding()
-                    } else {
-                        List {
-                            ForEach(Array(gameManager.leaderboard.enumerated()), id: \.element.id) { index, player in
-                                HStack(alignment: .center, spacing: 12) {
-                                    Text("#\(index + 1)")
-                                        .font(.title2)
-                                        .fontWeight(.bold)
-                                        .foregroundColor(.black)
-                                        .frame(width: 36, alignment: .center)
+        ZStack {
+            Color(hex: userIsWinner ? "FFCB45" : "C1BAA9")
+                .ignoresSafeArea()
 
-                                    VStack(alignment: .center, spacing: 4) {
-                                        Text(player.username)
-                                            .font(.headline)
-                                            .lineLimit(1)
-                                            .multilineTextAlignment(.center)
-                                        if player.isHost {
-                                            Text("مضيف")
-                                                .font(.caption)
-                                        }
-                                    }
-                                    .foregroundColor(.black)
-                                    .frame(maxWidth: .infinity, alignment: .center)
+            ScrollView {
+                VStack(spacing: 20) {
+                    headerBar
+                        .padding(.horizontal, 20)
+                        .padding(.top, 16)
 
-                                    HStack(spacing: 4) {
-                                        Text("\(player.score)")
-                                            .font(.title3)
-                                            .fontWeight(.semibold)
-                                        Text("نقطة")
-                                            .font(.subheadline)
-                                    }
-                                    .foregroundColor(.black)
-                                    .frame(width: 72, alignment: .center)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .padding(.vertical, 8)
-                                .listRowBackground(index == 0 ? AppTheme.accentSoft.opacity(0.35) : AppTheme.surface)
-                            }
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
+                    if userIsWinner {
+                        winnerContent
+                    } else {
+                        loserContent
                     }
-                    
-                    Button(action: {
-                        multipeerService.stop()
-                        profileManager.setModelContext(modelContext)
-                        // Stop background music when going back
-                        BackgroundMusicManager.shared.stopBackgroundMusic()
-                        showProfile = true
-                    }) {
-                        Text("عودة للبداية")
-                            .font(.headline)
+
+                    Button {
+                        goToUsernameEntry()
+                    } label: {
+                        Text("شوط جديد")
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundColor(AppTheme.textOnAccent)
                             .frame(maxWidth: .infinity)
-                            .padding()
+                            .frame(height: 52)
                             .background(AppTheme.accent)
-                            .cornerRadius(10)
+                            .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, 32)
+                    .padding(.top, 24)
+                    .padding(.bottom, 32)
                 }
-                    .padding()
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .frame(minHeight: geo.size.height)
-                }
+                .frame(maxWidth: .infinity)
             }
-            .navigationBarTitleDisplayMode(.inline)
         }
-        .environment(\.colorScheme, .light)
+        .environment(\.layoutDirection, .leftToRight)
         .onAppear {
             profileManager.setModelContext(modelContext)
-            checkIfWinner()
-            
-            // Ensure background music continues playing
             BackgroundMusicManager.shared.startBackgroundMusic()
-            
-            // تشغيل الصوت حسب النتيجة
-            if isWinner {
+
+            if userIsWinner {
                 SoundManager.playSound(sound: "winner", type: "mp3")
             } else {
                 SoundManager.playSound(sound: "loser", type: "mp3")
             }
         }
         .onDisappear {
-            // إيقاف الصوت عند الخروج
             SoundManager.stopAudio()
-        }
-        .fullScreenCover(isPresented: $showProfile) {
-            ProfileView(
-                profileManager: profileManager,
-                onLogout: {
-                    // Close ProfileView first
-                    showProfile = false
-                    // Set navigateToUsernameEntry before dismissing
-                    navigateToUsernameEntry = true
-                    // Then dismiss LeaderboardView after a short delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        dismiss()
-                    }
-                }
-            )
-        }
-        .onChange(of: showProfile) { oldValue, newValue in
-            // When profile sheet is dismissed, check if profile was cleared
-            if oldValue == true && newValue == false {
-                if profileManager.currentProfile == nil {
-                    // Profile was cleared, navigate to UsernameEntryView
-                    navigateToUsernameEntry = true
-                    // Then dismiss LeaderboardView after a short delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        dismiss()
-                    }
-                }
-            }
         }
         .fullScreenCover(isPresented: $navigateToUsernameEntry) {
             NavigationView {
@@ -225,14 +108,187 @@ struct LeaderboardView: View {
             }
         }
     }
-    
-    // ⭐️ التحقق من الفوز
-    func checkIfWinner() {
-        guard !multipeerService.username.isEmpty else { return }
-        
-        if let firstPlayer = gameManager.leaderboard.first {
-            isWinner = (firstPlayer.username == multipeerService.username)
+
+    private var headerBar: some View {
+        HStack {
+            Button {
+                goToUsernameEntry()
+            } label: {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(AppTheme.accent)
+                    .frame(width: 44, height: 44)
+                    .background(Color.white)
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+            }
+
+            Spacer()
         }
+    }
+
+    private func styledTitle(_ text: String, size: CGFloat = 50) -> some View {
+        Text(text)
+            .font(.appTitle(size))
+            .foregroundColor(AppTheme.textPrimary)
+            .overlay(
+                Text(text)
+                    .font(.appTitle(size))
+                    .foregroundColor(AppTheme.accent)
+                    .offset(x: 1, y: 1)
+            )
+            .rotationEffect(.degrees(-7))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 4)
+    }
+
+    private var sabouqTitle: some View {
+        styledTitle("سـبٌوق")
+    }
+
+    private var maoudKhairTitle: some View {
+        styledTitle("معوض خير", size: 44)
+    }
+
+    private func animatedHeroImage(name: String) -> some View {
+        Image(name)
+            .resizable()
+            .scaledToFit()
+            .frame(maxWidth: 280, maxHeight: 240)
+            .shadow(radius: 10)
+            .rotation3DEffect(
+                Angle(degrees: animateHero ? 180 : 0),
+                axis: (x: 0.0, y: 1.0, z: 0.0)
+            )
+            .padding(.top, 8)
+            .onAppear {
+                animateHero = false
+                withAnimation(.interpolatingSpring(stiffness: 30, damping: 3).repeatForever()) {
+                    animateHero.toggle()
+                }
+            }
+    }
+
+    private var winnerContent: some View {
+        Group {
+            sabouqTitle
+
+            animatedHeroImage(name: "winnerImage")
+
+            if let winner {
+                winnerBanner(name: winner.username)
+                    .padding(.top, 4)
+            }
+
+            rankingsList(players: runnersUp, startRank: 2)
+        }
+    }
+
+    private var loserContent: some View {
+        Group {
+            maoudKhairTitle
+
+            animatedHeroImage(name: "loserImage")
+
+            if let winner {
+                winnerBanner(name: winner.username)
+                    .padding(.top, 4)
+            }
+
+            if let name = displayNameForLoser, let rank = currentPlayerRank, rank > 1 {
+                loserRankRow(name: name, rank: rank)
+                    .padding(.top, 12)
+            }
+        }
+    }
+
+    private func loserRankRow(name: String, rank: Int) -> some View {
+        HStack(spacing: 16) {
+            Text(name)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+                .lineLimit(1)
+
+            ZStack {
+                Circle()
+                    .fill(Color(hex: "FFF5E3"))
+                    .frame(width: 50, height: 50)
+                Text(arabicNumeral(rank))
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    @ViewBuilder
+    private func rankingsList(players: [Player], startRank: Int) -> some View {
+        if players.isEmpty {
+            Text("لايوجد نتائج")
+                .font(.headline)
+                .foregroundColor(AppTheme.textPrimary)
+                .padding(.top, 12)
+        } else {
+            VStack(spacing: 18) {
+                ForEach(Array(players.enumerated()), id: \.element.id) { index, player in
+                    runnerUpRow(player: player, rank: startRank + index)
+                }
+            }
+            .padding(.top, 12)
+        }
+    }
+
+    private func winnerBanner(name: String) -> some View {
+        nameRibbonBanner(name: name)
+    }
+
+    private func nameRibbonBanner(name: String) -> some View {
+        ZStack {
+            Image("Ribbon")
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 280, maxHeight: 80)
+
+            Text(name)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 28)
+                .offset(y: -12)
+        }
+        .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
+    }
+
+    private func runnerUpRow(player: Player, rank: Int) -> some View {
+        HStack(spacing: 16) {
+            Text(player.username)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(AppTheme.textPrimary)
+                .lineLimit(1)
+
+            ZStack {
+                Circle()
+                    .fill(Color(hex: "FFF5E3"))
+                    .frame(width: 50, height: 50)
+                Text(arabicNumeral(rank))
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    private func goToUsernameEntry() {
+        multipeerService.stop()
+        BackgroundMusicManager.shared.stopBackgroundMusic()
+        navigateToUsernameEntry = true
+    }
+
+    private func arabicNumeral(_ value: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "ar")
+        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 }
 

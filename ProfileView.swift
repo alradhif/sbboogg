@@ -29,7 +29,7 @@ struct ProfileView: View {
     @State private var editedUsername: String = ""
     @State private var setupName: String = ""
     @State private var selectedAvatar: String = PlayerAvatars.defaultName
-    @State private var showLeaderboard: Bool = false
+    @State private var showSettings: Bool = false
     @State private var navigateToUsernameEntry: Bool = false
     @State private var setupUsername: String = ""
     @State private var showLobby: Bool = false
@@ -129,13 +129,9 @@ struct ProfileView: View {
             if !isInitialSetup {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        profileManager.clearCurrentProfile()
-                        BackgroundMusicManager.shared.stopBackgroundMusic()
-                        dismiss()
-                        onLogout?()
-                        navigateToUsernameEntry = true
+                        showSettings = true
                     } label: {
-                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                        Image(systemName: "gearshape.fill")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(AppTheme.accent)
                             .frame(width: 44, height: 44)
@@ -167,6 +163,52 @@ struct ProfileView: View {
                 selectedAvatar = PlayerAvatars.imageName(for: profile.avatarImageName)
             }
         }
+        .sheet(isPresented: $showSettings) {
+            profileSettingsSheet
+        }
+    }
+
+    private var profileSettingsSheet: some View {
+        NavigationView {
+            ZStack {
+                Color(hex: "FFCB45")
+                    .ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) {
+                        Text("التصنيف")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(AppTheme.textOnAccent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.accent)
+                            .clipShape(Capsule())
+                    }
+
+                    musicSection
+
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+            }
+            .navigationTitle("الإعدادات")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("تم") {
+                        showSettings = false
+                    }
+                    .foregroundColor(AppTheme.accent)
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .environment(\.layoutDirection, .leftToRight)
     }
 
     func completeSetup() {
@@ -256,19 +298,6 @@ struct ProfileView: View {
             levelProgressSection(score: profile.totalScore)
 
             avatarPickerSection(score: profile.totalScore, allowAll: false)
-
-            NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) {
-                Text("التصنيف")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(AppTheme.textOnAccent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(AppTheme.accent)
-                    .clipShape(Capsule())
-            }
-
-            musicSection
 
             Spacer(minLength: 48)
         }
@@ -369,7 +398,7 @@ struct ProfileView: View {
             Rectangle()
                 .fill(AppTheme.textSecondary.opacity(0.25))
                 .frame(width: 1, height: 44)
-            statItem(value: "\(profile.totalGamesPlayed)", title: "شوط")
+            statItem(value: "\(profile.totalGamesPlayed)", title: "شطور")
         }
         .padding(.vertical, 8)
         .frame(maxWidth: 280)
@@ -403,26 +432,27 @@ struct ProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .center)
 
             HStack(spacing: 6) {
-                levelBadge(number: level, filled: true)
+                levelBadge(number: nextLevel, filled: false)
 
-                ZStack(alignment: .leading) {
+                ZStack(alignment: .trailing) {
                     Capsule()
                         .fill(Color.white.opacity(0.55))
                     GeometryReader { barGeo in
                         Capsule()
                             .fill(AppTheme.accent)
                             .frame(width: max(0, barGeo.size.width * progress))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
                     }
                     Text("\(score)/\(threshold)")
                         .font(.caption2)
                         .fontWeight(.semibold)
                         .foregroundColor(.white)
-                        .padding(.leading, 8)
+                        .padding(.trailing, 8)
                 }
                 .frame(height: 18)
                 .frame(maxWidth: .infinity)
 
-                levelBadge(number: nextLevel, filled: false)
+                levelBadge(number: level, filled: true)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 8)
@@ -452,7 +482,7 @@ struct ProfileView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     Spacer(minLength: 0)
-                    ForEach(1...ProfileLevel.maxLevel, id: \.self) { level in
+                    ForEach(Array((1...ProfileLevel.maxLevel).reversed()), id: \.self) { level in
                         let avatarName = PlayerAvatars.avatar(forLevel: level)
                         let unlocked = allowAll || ProfileLevel.isUnlocked(level: level, score: score)
                         AvatarLevelCard(
@@ -535,17 +565,12 @@ private struct AvatarLevelCard: View {
                     .fontWeight(.bold)
                     .foregroundColor(.black)
 
-                ZStack {
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 72, height: 72)
-                    Image(avatarName)
-                        .resizable()
-                        .scaledToFit()
-                        .padding(6)
-                        .frame(width: 72, height: 72)
-                }
-                .opacity(isUnlocked ? 1 : 0.35)
+                Image(avatarName)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(6)
+                    .frame(width: 72, height: 72)
+                    .opacity(isUnlocked ? 1 : 0.35)
             }
             .frame(width: 108, height: 148)
             .background(Color.white)

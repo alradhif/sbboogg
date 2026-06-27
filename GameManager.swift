@@ -130,7 +130,11 @@ class GameManager: ObservableObject {
             responseTime: nil
         )
         multipeerService.sendMessage(message)
-        
+    }
+
+    func beginGameplay() {
+        guard multipeerService.isHost else { return }
+        guard isGameActive, currentRound == 0, currentChallenge == nil else { return }
         startRound()
     }
     

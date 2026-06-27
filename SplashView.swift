@@ -1,23 +1,25 @@
 import SwiftUI
+import SwiftData
 
 struct Splash_Previews: PreviewProvider {
     static var previews: some View {
         Splash()
+            .modelContainer(
+                for: [Player.self, GameSession.self, PlayerProfile.self],
+                inMemory: true
+            )
     }
 }
 
 struct Splash: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var multipeerService = MultipeerService()
+    @StateObject private var profileManager = ProfileManager()
     @State private var username: String = ""
     @State private var showLobby: Bool = false
     @State private var isHost: Bool = false
-    @State var splashScreen  = true
-    @State private var isActive = false
-    @State private var selectedPage = 0
-    @State private var book = false
-    private var showNextView = false
-    @State private var navigationActive = false
-    @State private var animateCircle: Bool = false
+    @State var splashScreen = true
+    @State private var hasProfile = false
     
     var body: some View {
         ZStack {
@@ -26,6 +28,16 @@ struct Splash: View {
 
             if splashScreen {
                 SplashScreen()
+            } else if hasProfile {
+                NavigationView {
+                    UsernameEntryView(
+                        username: $username,
+                        showLobby: $showLobby,
+                        isHost: $isHost,
+                        multipeerService: multipeerService
+                    )
+                }
+                .navigationViewStyle(.stack)
             } else {
                 MainPage()
             }
@@ -38,11 +50,13 @@ struct Splash: View {
                         Text("سـبٌوق")
                             .font(.appTitle(50))
                             .foregroundColor(AppTheme.textPrimary)
+                            .rotationEffect(.degrees(8))
                             .overlay(
                                 Text("سـبٌوق")
                                     .font(.appTitle(50))
                                     .foregroundColor(AppTheme.accent)
                                     .offset(x: 1, y: 1)
+                                    .rotationEffect(.degrees(8))
                             )
 
                         Text("سبّاق وقد التحدي")
@@ -67,9 +81,14 @@ struct Splash: View {
             }
         }
         .onAppear {
-            // Start background music from splash screen
+            profileManager.setModelContext(modelContext)
+            hasProfile = profileManager.currentProfile != nil
+            if let profile = profileManager.currentProfile {
+                username = profile.username
+            }
+
             BackgroundMusicManager.shared.startBackgroundMusic()
-            
+
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
                 splashScreen = false
             }

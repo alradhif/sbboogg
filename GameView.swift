@@ -52,16 +52,10 @@ struct GameView: View {
                         }
 
                         Spacer()
-
-//                        Image("Ellipse 12")
-//                            .resizable()
-//                            .scaledToFit()
-//                            .frame(width: 44, height: 44)
-//                            .clipShape(Circle())
-//                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
                     }
-//                    .padding(.horizontal, 20)
-//                    .padding(.top, 10)
+                    .environment(\.layoutDirection, .leftToRight)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
 
                     HStack(spacing: 16) {
                         VStack(alignment: .leading, spacing: 10) {

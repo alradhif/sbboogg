@@ -9,14 +9,30 @@
 
 import SwiftUI
 import AVKit
+import SwiftData
 
 struct MainPage: View {
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var multipeerService = MultipeerService()
+    @StateObject private var profileManager = ProfileManager()
     @State private var showMain2: Bool = false
+    @State private var showUsernameEntry: Bool = false
+    @State private var username: String = ""
+    @State private var showLobby: Bool = false
+    @State private var isHost: Bool = false
     @State private var ghostsFloating: Bool = false
     
     private func goToNextPage() {
+        profileManager.setModelContext(modelContext)
         withAnimation(.easeInOut(duration: 0.35)) {
-            showMain2 = true
+            if profileManager.currentProfile != nil {
+                if let profile = profileManager.currentProfile {
+                    username = profile.username
+                }
+                showUsernameEntry = true
+            } else {
+                showMain2 = true
+            }
         }
     }
     
@@ -136,6 +152,18 @@ struct MainPage: View {
                             isActive: $showMain2
                         )
                         .hidden()
+
+                        NavigationLink(
+                            "",
+                            destination: UsernameEntryView(
+                                username: $username,
+                                showLobby: $showLobby,
+                                isHost: $isHost,
+                                multipeerService: multipeerService
+                            ),
+                            isActive: $showUsernameEntry
+                        )
+                        .hidden()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
@@ -152,6 +180,9 @@ struct MainPage: View {
             }
             .navigationBarHidden(true)
             .navigationBarBackButtonHidden(true)
+            .onAppear {
+                profileManager.setModelContext(modelContext)
+            }
         }
     }
 }
@@ -227,6 +258,10 @@ struct ChatBubble: Shape {
 struct MainPage_Previews: PreviewProvider {
     static var previews: some View {
         MainPage()
+            .modelContainer(
+                for: [Player.self, GameSession.self, PlayerProfile.self],
+                inMemory: true
+            )
     }
 }
 

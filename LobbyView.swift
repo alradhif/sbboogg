@@ -18,6 +18,7 @@ struct LobbyView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var gameManager: GameManager
     @StateObject private var profileManager = ProfileManager()
+    @State private var showTimer: Bool = false
     @State private var showGame: Bool = false
     @State private var showLeaderboard: Bool = false
     @State private var showInvitations: Bool = false
@@ -154,13 +155,31 @@ struct LobbyView: View {
             if active {
                 showInvitations = false
                 BackgroundMusicManager.shared.startBackgroundMusic()
-                showGame = true
+                showTimer = true
             }
         }
         .onChange(of: gameManager.gameEnded) { ended in
             if ended {
                 showLeaderboard = true
             }
+        }
+        .fullScreenCover(isPresented: $showTimer) {
+            TimerView(
+                multipeerService: multipeerService,
+                onFinished: {
+                    showTimer = false
+                    showGame = true
+                    if isHost {
+                        gameManager.beginGameplay()
+                    }
+                },
+                onExit: {
+                    showTimer = false
+                    multipeerService.stop()
+                    gameManager.resetForLobby()
+                    setupLobby()
+                }
+            )
         }
         .fullScreenCover(isPresented: $showGame) {
             GameView(gameManager: gameManager, multipeerService: multipeerService)
