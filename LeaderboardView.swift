@@ -50,7 +50,7 @@ struct LeaderboardView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: userIsWinner ? "FFCB45" : "C1BAA9")
+            Color(hex: userIsWinner ? "FFE4A0" : "C1BAA9")
                 .ignoresSafeArea()
 
             ScrollView {

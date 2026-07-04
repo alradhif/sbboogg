@@ -14,7 +14,6 @@
 		2F20D48569464B10AC06AFC4 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132B29352301411D92B989D4 /* ProfileView.swift */; };
 		34E4809C6E3A4E69B964F3BD /* UsernameEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6EB04D525A47749616BD72 /* UsernameEntryView.swift */; };
 		4A2E6715FBA847D5A95B528D /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B460D6BC02E47C489F97121 /* GameView.swift */; };
-		T1M3RV13W5W1FT5F1L3R3F01 /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */; };
 		6399BD790FD1461FB986E0F5 /* GameManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1A3EA8DCB1F4A2A8786A760 /* GameManager.swift */; };
 		7C1A5B9D8E2F4A1B9C3D5E7F /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F2E3D4C5B6A79808F7E6D5C /* Theme.swift */; };
 		8D255987E34B4200A066A72A /* LeaderboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83BC8306A58C4C7D94878F89 /* LeaderboardView.swift */; };
@@ -36,6 +35,7 @@
 		F0B1E2C40A1B2C3D4E5F6789 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B1E2C30A1B2C3D4E5F6789 /* SplashView.swift */; };
 		F0C1D2E3A4B5C6D7E8F9A0B1 /* MainPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */; };
 		F0C1D2E3A4B5C6D7E8F9A0B3 /* MainView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */; };
+		T1M3RV13W5W1FT5F1L3R3F01 /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,7 +55,6 @@
 		34888D3CC7DB4E089623DBED /* sbogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = sbogApp.swift; sourceTree = "<group>"; };
 		3F6EB04D525A47749616BD72 /* UsernameEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsernameEntryView.swift; sourceTree = "<group>"; };
 		5B460D6BC02E47C489F97121 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
-		T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
 		6EDB5A47B1E042DE94BF048A /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		83BC8306A58C4C7D94878F89 /* LeaderboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeaderboardView.swift; sourceTree = "<group>"; };
 		9F2E3D4C5B6A79808F7E6D5C /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -80,6 +79,7 @@
 		F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainPageView.swift; sourceTree = "<group>"; };
 		F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView2.swift; sourceTree = "<group>"; };
 		F7A8B9C0D1E2F3A4B5C6D7E8 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -377,7 +377,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4537LZ5Z3M;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "سبٌوق";
@@ -392,7 +392,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww10000;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww100000;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -409,7 +409,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 4537LZ5Z3M;
+				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "سبٌوق";
@@ -424,7 +424,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww10000;
+				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww100000;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
