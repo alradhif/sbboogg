@@ -203,7 +203,6 @@ struct GameView: View {
         }
         switch objectName.lowercased() {
         case "book": return "كتاب!"
-        case "glasses": return "نظارة!"
         case "water bottle": return "علبة موية!"
         case "phone", "mobile", "smartphone": return "جوال!"
         case "cup", "mug": return "كوب!"
