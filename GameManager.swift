@@ -38,6 +38,9 @@ class GameManager: ObservableObject {
         ObjectChallenge(objectName: "keys", round: 10)
     ]
     
+    /// Every round won first, used as the finish line of the race track.
+    var maxPossibleScore: Int { challenges.count * 2 }
+    
     init(multipeerService: MultipeerService, profileManager: ProfileManager? = nil) {
         self.multipeerService = multipeerService
         self.profileManager = profileManager
