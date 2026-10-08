@@ -306,14 +306,23 @@ class GameManager: ObservableObject {
         // Determine winner (highest score)
         let winner = leaderboard.first
         
-        // Save scores for all players
+        let myPeerID = multipeerService.myPeerID.displayName
+        let myUsername = multipeerService.username
+        
         for player in players {
             let won = winner?.username == player.username
-            profileManager.updateProfile(
-                username: player.username,
-                gameScore: player.score,
-                won: won
-            )
+            let isMe = player.peerID.isEmpty
+                ? player.username == myUsername
+                : player.peerID == myPeerID
+            if isMe {
+                profileManager.recordLocalResult(gameScore: player.score, won: won)
+            } else {
+                profileManager.recordOpponentResult(
+                    username: player.username,
+                    gameScore: player.score,
+                    won: won
+                )
+            }
         }
     }
     

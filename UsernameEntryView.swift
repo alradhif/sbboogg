@@ -219,7 +219,7 @@ struct UsernameEntryView: View {
     
     func startAsHost() {
         guard !username.isEmpty else { return }
-        let profile = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
+        let profile = profileManager.getOrCreateLocalProfile(username: username.trimmingCharacters(in: .whitespaces))
         isHost = true
         multipeerService.startHosting(
             username: username.trimmingCharacters(in: .whitespaces),
@@ -230,7 +230,7 @@ struct UsernameEntryView: View {
     
     func startAsGuest() {
         guard !username.isEmpty else { return }
-        let profile = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
+        let profile = profileManager.getOrCreateLocalProfile(username: username.trimmingCharacters(in: .whitespaces))
         isHost = false
         isSearching = true
         multipeerService.startBrowsing(
