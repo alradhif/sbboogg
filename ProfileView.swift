@@ -215,7 +215,7 @@ struct ProfileView: View {
         let trimmed = setupName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, multipeerService != nil else { return }
 
-        _ = profileManager.getOrCreateProfile(username: trimmed)
+        _ = profileManager.getOrCreateLocalProfile(username: trimmed)
         profileManager.updateAvatar(selectedAvatar)
         setupUsername = trimmed
         navigateToUsernameEntry = true

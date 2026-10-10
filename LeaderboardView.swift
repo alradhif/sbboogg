@@ -22,26 +22,6 @@ struct LeaderboardView: View {
         gameManager.leaderboard.first
     }
 
-    private var runnersUp: [Player] {
-        Array(gameManager.leaderboard.dropFirst())
-    }
-
-    private var currentPlayer: Player? {
-        gameManager.leaderboard.first(where: { $0.username == multipeerService.username })
-    }
-
-    private var currentPlayerRank: Int? {
-        gameManager.leaderboard.firstIndex(where: { $0.username == multipeerService.username }).map { $0 + 1 }
-    }
-
-    private var displayNameForLoser: String? {
-        if let username = currentPlayer?.username {
-            return username
-        }
-        let username = multipeerService.username
-        return username.isEmpty ? nil : username
-    }
-
     private var userIsWinner: Bool {
         guard !multipeerService.username.isEmpty,
               let first = gameManager.leaderboard.first else { return false }
@@ -180,7 +160,11 @@ struct LeaderboardView: View {
                     .padding(.top, 4)
             }
 
-            rankingsList(players: runnersUp, startRank: 2)
+            RaceFinishView(
+                players: gameManager.leaderboard,
+                myUsername: multipeerService.username
+            )
+            .padding(.top, 12)
         }
     }
 
@@ -195,45 +179,10 @@ struct LeaderboardView: View {
                     .padding(.top, 4)
             }
 
-            if let name = displayNameForLoser, let rank = currentPlayerRank, rank > 1 {
-                loserRankRow(name: name, rank: rank)
-                    .padding(.top, 12)
-            }
-        }
-    }
-
-    private func loserRankRow(name: String, rank: Int) -> some View {
-        HStack(spacing: 16) {
-            Text(name)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
-                .lineLimit(1)
-
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "FFF5E3"))
-                    .frame(width: 50, height: 50)
-                Text(arabicNumeral(rank))
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-    }
-
-    @ViewBuilder
-    private func rankingsList(players: [Player], startRank: Int) -> some View {
-        if players.isEmpty {
-            Text("لايوجد نتائج")
-                .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.top, 12)
-        } else {
-            VStack(spacing: 18) {
-                ForEach(Array(players.enumerated()), id: \.element.id) { index, player in
-                    runnerUpRow(player: player, rank: startRank + index)
-                }
-            }
+            RaceFinishView(
+                players: gameManager.leaderboard,
+                myUsername: multipeerService.username
+            )
             .padding(.top, 12)
         }
     }
@@ -260,32 +209,182 @@ struct LeaderboardView: View {
         .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
     }
 
-    private func runnerUpRow(player: Player, rank: Int) -> some View {
-        HStack(spacing: 16) {
-            Text(player.username)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
-                .lineLimit(1)
-
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "FFF5E3"))
-                    .frame(width: 50, height: 50)
-                Text(arabicNumeral(rank))
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-    }
-
     private func goToUsernameEntry() {
         multipeerService.stop()
         BackgroundMusicManager.shared.stopBackgroundMusic()
         navigateToUsernameEntry = true
     }
+}
 
-    private func arabicNumeral(_ value: Int) -> String {
+/// The final standings drawn as a camel race: each player runs up their own
+/// lane, and the winner reaches the finish line at the top.
+struct RaceFinishView: View {
+    /// Final standings, best score first.
+    let players: [Player]
+    let myUsername: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: CGFloat = 0
+
+    private let trackHeight: CGFloat = 240
+    private let tokenSize: CGFloat = 46
+
+    private var topScore: Int {
+        players.map(\.score).max() ?? 0
+    }
+
+    private var ranks: [String: Int] {
+        var result: [String: Int] = [:]
+        for (index, player) in players.enumerated() {
+            // Players on the same score share a rank
+            if index > 0, players[index - 1].score == player.score {
+                result[player.username] = result[players[index - 1].username]
+            } else {
+                result[player.username] = index + 1
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("خط النهاية")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(AppTheme.textPrimary)
+                .padding(.bottom, 6)
+
+            finishLine
+                .frame(height: 12)
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+
+            HStack(alignment: .top, spacing: 8) {
+                let rankMap = ranks
+                ForEach(Array(players.enumerated()), id: \.element.id) { index, player in
+                    lane(
+                        for: player,
+                        rank: rankMap[player.username] ?? index + 1,
+                        delay: Double(index) * 0.15
+                    )
+                }
+            }
+            // Winner on the right, the way the rest of the app reads
+            .environment(\.layoutDirection, .rightToLeft)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "FFE7B0"), Color(hex: "F3CF8A")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        )
+        .shadow(color: Color.black.opacity(0.1), radius: 6, y: 3)
+        .padding(.horizontal, 24)
+        .onAppear {
+            if reduceMotion {
+                progress = 1
+            } else {
+                progress = 0
+                withAnimation(.spring(response: 1.6, dampingFraction: 0.85).delay(0.4)) {
+                    progress = 1
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private func lane(for player: Player, rank: Int, delay: Double) -> some View {
+        let isMe = player.username == myUsername
+        let fraction: CGFloat = topScore > 0
+            ? CGFloat(player.score) / CGFloat(topScore)
+            : 0
+        let travel = (trackHeight - tokenSize) * fraction * progress
+
+        return VStack(spacing: 6) {
+            ZStack(alignment: .bottom) {
+                // Lane marking
+                Rectangle()
+                    .fill(Color.white.opacity(0.55))
+                    .frame(width: 3)
+                    .frame(maxHeight: .infinity)
+
+                token(for: player, rank: rank, isMe: isMe)
+                    .offset(y: -travel)
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 1.6, dampingFraction: 0.85).delay(delay),
+                        value: progress
+                    )
+            }
+            .frame(height: trackHeight)
+            .frame(maxWidth: .infinity)
+
+            Text(player.username)
+                .font(.system(size: 13, weight: isMe ? .heavy : .semibold))
+                .foregroundColor(isMe ? AppTheme.accent : AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+
+            Text("\(Self.arabicNumeral(player.score)) نقطة")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(AppTheme.textPrimary.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func token(for player: Player, rank: Int, isMe: Bool) -> some View {
+        Image(player.avatarImageName)
+            .resizable()
+            .scaledToFill()
+            .frame(width: tokenSize, height: tokenSize)
+            .clipShape(Circle())
+            .overlay(
+                Circle().stroke(isMe ? Color.green : Color.white, lineWidth: isMe ? 3 : 2)
+            )
+            .overlay(alignment: .top) {
+                Text(rank == 1 ? "👑" : Self.arabicNumeral(rank))
+                    .font(.system(size: rank == 1 ? 18 : 12, weight: .heavy))
+                    .foregroundColor(AppTheme.accent)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .background(rank == 1 ? Color.clear : Color.white)
+                    .clipShape(Circle())
+                    .offset(y: -14)
+            }
+            .shadow(color: Color.black.opacity(0.15), radius: 3, y: 2)
+    }
+
+    private var finishLine: some View {
+        Canvas { context, size in
+            let square: CGFloat = 6
+            let columns = Int(ceil(size.width / square))
+            let rows = Int(ceil(size.height / square))
+            for row in 0..<rows {
+                for column in 0..<columns where (row + column).isMultiple(of: 2) {
+                    let rect = CGRect(
+                        x: CGFloat(column) * square,
+                        y: CGFloat(row) * square,
+                        width: square,
+                        height: square
+                    )
+                    context.fill(Path(rect), with: .color(AppTheme.textPrimary))
+                }
+            }
+        }
+        .background(Color.white)
+    }
+
+    private var accessibilitySummary: String {
+        let rankMap = ranks
+        return players
+            .map { "\($0.username): المركز \(rankMap[$0.username] ?? 0)، \($0.score) نقطة" }
+            .joined(separator: "، ")
+    }
+
+    private static func arabicNumeral(_ value: Int) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "ar")
         return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
