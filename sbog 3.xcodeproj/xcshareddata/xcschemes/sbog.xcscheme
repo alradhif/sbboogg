@@ -17,7 +17,7 @@
                BlueprintIdentifier = "C9D8E7F6A5B4C3D2E1F0A9B8"
                BuildableName = "sbog.app"
                BlueprintName = "sbog"
-               ReferencedContainer = "container:sbog.xcodeproj">
+               ReferencedContainer = "container:sbog 3.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,7 +36,7 @@
                BlueprintIdentifier = "D08832CD2F0DDD6900CD7A80"
                BuildableName = "sbogTests.xctest"
                BlueprintName = "sbogTests"
-               ReferencedContainer = "container:sbog.xcodeproj">
+               ReferencedContainer = "container:sbog 3.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -58,7 +58,7 @@
             BlueprintIdentifier = "C9D8E7F6A5B4C3D2E1F0A9B8"
             BuildableName = "sbog.app"
             BlueprintName = "sbog"
-            ReferencedContainer = "container:sbog.xcodeproj">
+            ReferencedContainer = "container:sbog 3.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -75,7 +75,7 @@
             BlueprintIdentifier = "C9D8E7F6A5B4C3D2E1F0A9B8"
             BuildableName = "sbog.app"
             BlueprintName = "sbog"
-            ReferencedContainer = "container:sbog.xcodeproj">
+            ReferencedContainer = "container:sbog 3.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

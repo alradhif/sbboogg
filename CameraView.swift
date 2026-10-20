@@ -8,7 +8,6 @@
 import SwiftUI
 import AVFoundation
 import UIKit
-import Vision
 
 // MARK: - Camera Preview using AVCaptureSession
 struct CameraPreviewView: UIViewControllerRepresentable {
@@ -16,25 +15,30 @@ struct CameraPreviewView: UIViewControllerRepresentable {
     @Binding var classificationResult: String?
     @Binding var isImageCaptured: Bool
     @Binding var captureTrigger: Bool
+    var isLiveDetectionEnabled: Bool = true
 
     @ObservedObject var visionClassifier: VisionClassifier
     let targetObject: String
-    let onObjectFound: (Bool, Double) -> Void
+    let onObjectFound: (Bool, Double, String) -> Void
 
     class CameraViewController: UIViewController {
         var captureSession: AVCaptureSession!
         var stillImageOutput: AVCapturePhotoOutput!
+        var videoDataOutput: AVCaptureVideoDataOutput!
         var previewLayer: AVCaptureVideoPreviewLayer!
+        private let videoQueue = DispatchQueue(label: "sbog.camera.video", qos: .userInitiated)
+        private let liveDetector = LiveCameraObjectDetector()
+        private let detectionOverlay = CameraDetectionOverlayView()
 
         var capturedImage: Binding<UIImage?>
         var classificationResult: Binding<String?>
         var isImageCaptured: Binding<Bool>
 
-        // ✅ Vision classifier
         var visionClassifier: VisionClassifier
 
         var targetObject: String
-        var onObjectFound: (Bool, Double) -> Void
+        var onObjectFound: (Bool, Double, String) -> Void
+        var isLiveDetectionEnabled = true
 
         init(
             capturedImage: Binding<UIImage?>,
@@ -42,7 +46,7 @@ struct CameraPreviewView: UIViewControllerRepresentable {
             isImageCaptured: Binding<Bool>,
             visionClassifier: VisionClassifier,
             targetObject: String,
-            onObjectFound: @escaping (Bool, Double) -> Void
+            onObjectFound: @escaping (Bool, Double, String) -> Void
         ) {
             self.capturedImage = capturedImage
             self.classificationResult = classificationResult
@@ -59,6 +63,17 @@ struct CameraPreviewView: UIViewControllerRepresentable {
 
         override func viewDidLoad() {
             super.viewDidLoad()
+            liveDetector.onDetections = { [weak self] detections in
+                guard let self, self.isLiveDetectionEnabled, let previewLayer = self.previewLayer else {
+                    self?.detectionOverlay.boxes = []
+                    return
+                }
+                self.detectionOverlay.boxes = CameraBoundingBoxConverter.annotations(
+                    from: detections,
+                    previewLayer: previewLayer,
+                    targetObject: self.targetObject
+                )
+            }
             setupCamera()
         }
 
@@ -93,9 +108,22 @@ struct CameraPreviewView: UIViewControllerRepresentable {
                 let input = try AVCaptureDeviceInput(device: backCamera)
                 stillImageOutput = AVCapturePhotoOutput()
 
-                if captureSession.canAddInput(input) && captureSession.canAddOutput(stillImageOutput) {
+                videoDataOutput = AVCaptureVideoDataOutput()
+                videoDataOutput.videoSettings = [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ]
+                videoDataOutput.alwaysDiscardsLateVideoFrames = true
+                videoDataOutput.setSampleBufferDelegate(self, queue: videoQueue)
+
+                if captureSession.canAddInput(input),
+                   captureSession.canAddOutput(stillImageOutput),
+                   captureSession.canAddOutput(videoDataOutput) {
                     captureSession.addInput(input)
                     captureSession.addOutput(stillImageOutput)
+                    captureSession.addOutput(videoDataOutput)
+                    if let connection = videoDataOutput.connection(with: .video) {
+                        connection.videoOrientation = .portrait
+                    }
                     setupLivePreview()
                 }
             } catch {
@@ -109,6 +137,8 @@ struct CameraPreviewView: UIViewControllerRepresentable {
             previewLayer.connection?.videoOrientation = .portrait
 
             view.layer.addSublayer(previewLayer)
+            detectionOverlay.frame = view.bounds
+            view.addSubview(detectionOverlay)
 
             DispatchQueue.global(qos: .userInitiated).async {
                 self.captureSession.startRunning()
@@ -121,6 +151,10 @@ struct CameraPreviewView: UIViewControllerRepresentable {
         override func viewDidLayoutSubviews() {
             super.viewDidLayoutSubviews()
             previewLayer?.frame = view.bounds
+            detectionOverlay.frame = view.bounds
+            if !detectionOverlay.boxes.isEmpty {
+                detectionOverlay.setNeedsDisplay()
+            }
         }
 
         @objc func capturePhoto() {
@@ -141,8 +175,12 @@ struct CameraPreviewView: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: CameraViewController, context: Context) {
-        // keep target updated لو تغيرت الجولة
         uiViewController.targetObject = targetObject
+        uiViewController.isLiveDetectionEnabled = isLiveDetectionEnabled && !isImageCaptured
+        if !uiViewController.isLiveDetectionEnabled {
+            uiViewController.detectionOverlayPublic.boxes = []
+            uiViewController.liveDetectorPublic.reset()
+        }
         if captureTrigger {
             uiViewController.capturePhoto()
             DispatchQueue.main.async {
@@ -152,7 +190,24 @@ struct CameraPreviewView: UIViewControllerRepresentable {
     }
 }
 
-// MARK: - Capture Delegate (Vision)
+extension CameraPreviewView.CameraViewController {
+    var detectionOverlayPublic: CameraDetectionOverlayView { detectionOverlay }
+    var liveDetectorPublic: LiveCameraObjectDetector { liveDetector }
+}
+
+// MARK: - Live video frames
+extension CameraPreviewView.CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        guard isLiveDetectionEnabled, !isImageCaptured.wrappedValue else { return }
+        liveDetector.process(sampleBuffer: sampleBuffer, targetObject: targetObject)
+    }
+}
+
+// MARK: - Capture Delegate
 extension CameraPreviewView.CameraViewController: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
 
@@ -168,6 +223,8 @@ extension CameraPreviewView.CameraViewController: AVCapturePhotoCaptureDelegate 
 
         capturedImage.wrappedValue = image
         isImageCaptured.wrappedValue = true
+        detectionOverlay.boxes = []
+        liveDetector.reset()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             self.visionClassifier.classifyImage(image, targetObject: self.targetObject) { found, confidence, topText in
@@ -178,13 +235,10 @@ extension CameraPreviewView.CameraViewController: AVCapturePhotoCaptureDelegate 
                             self.targetObject,
                             topText
                         )
-                        self.onObjectFound(true, confidence)
+                        self.onObjectFound(true, confidence, topText)
                     } else {
-                        self.classificationResult.wrappedValue = String(
-                            format: NSLocalizedString("Not sure ❌\n%@", comment: ""),
-                            topText
-                        )
-                        self.onObjectFound(false, confidence)
+                        self.classificationResult.wrappedValue = "❌ \(topText)"
+                        self.onObjectFound(false, confidence, topText)
                     }
                 }
             }
@@ -192,7 +246,7 @@ extension CameraPreviewView.CameraViewController: AVCapturePhotoCaptureDelegate 
     }
 }
 
-// MARK: - UIImagePickerController Wrapper (Vision)
+// MARK: - UIImagePickerController Wrapper
 struct CameraViewControllerWrapper: UIViewControllerRepresentable {
     @Binding var capturedImage: UIImage?
     @Binding var classificationResult: String?
@@ -200,7 +254,7 @@ struct CameraViewControllerWrapper: UIViewControllerRepresentable {
 
     @ObservedObject var visionClassifier: VisionClassifier
     let targetObject: String
-    let onObjectFound: (Bool, Double) -> Void
+    let onObjectFound: (Bool, Double, String) -> Void
 
     class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
         @Binding var capturedImage: UIImage?
@@ -209,7 +263,7 @@ struct CameraViewControllerWrapper: UIViewControllerRepresentable {
 
         let visionClassifier: VisionClassifier
         let targetObject: String
-        let onObjectFound: (Bool, Double) -> Void
+        let onObjectFound: (Bool, Double, String) -> Void
 
         init(
             capturedImage: Binding<UIImage?>,
@@ -217,7 +271,7 @@ struct CameraViewControllerWrapper: UIViewControllerRepresentable {
             isImageCaptured: Binding<Bool>,
             visionClassifier: VisionClassifier,
             targetObject: String,
-            onObjectFound: @escaping (Bool, Double) -> Void
+            onObjectFound: @escaping (Bool, Double, String) -> Void
         ) {
             _capturedImage = capturedImage
             _classificationResult = classificationResult
@@ -251,13 +305,10 @@ struct CameraViewControllerWrapper: UIViewControllerRepresentable {
                                     self.targetObject,
                                     topText
                                 )
-                                    self.onObjectFound(true, confidence)
+                                    self.onObjectFound(true, confidence, topText)
                                 } else {
-                                self.classificationResult = String(
-                                    format: NSLocalizedString("Not sure ❌\n%@", comment: ""),
-                                    topText
-                                )
-                                    self.onObjectFound(false, confidence)
+                                    self.classificationResult = "❌ \(topText)"
+                                    self.onObjectFound(false, confidence, topText)
                                 }
                             }
                         }
@@ -313,7 +364,7 @@ struct CameraView: View {
 
     @ObservedObject var visionClassifier: VisionClassifier
     let targetObject: String
-    let onObjectFound: (Bool, Double) -> Void
+    let onObjectFound: (Bool, Double, String) -> Void
 
     @Binding var isPresented: Bool
     @Environment(\.dismiss) var dismiss

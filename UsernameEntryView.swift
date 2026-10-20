@@ -33,7 +33,7 @@ struct UsernameEntryView: View {
             
             // Hidden navigation trigger to lobby when showLobby becomes true
             NavigationLink(
-                destination: LobbyView(multipeerService: multipeerService, isHost: isHost),
+                destination: LobbyView(multipeerService: multipeerService, isHost: isHost, showLobby: $showLobby),
                 isActive: $showLobby
             ) {
                 EmptyView()

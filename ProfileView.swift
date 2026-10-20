@@ -161,6 +161,8 @@ struct ProfileView: View {
             profileManager.setModelContext(modelContext)
             if let profile = profileManager.currentProfile {
                 selectedAvatar = PlayerAvatars.imageName(for: profile.avatarImageName)
+            } else if isInitialSetup {
+                selectedAvatar = PlayerAvatars.defaultName
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -261,7 +263,7 @@ struct ProfileView: View {
 
             setupNameCapsule
 
-            avatarPickerSection(score: 999, allowAll: true)
+            avatarPickerSection(score: 0)
 
             Button {
                 completeSetup()
@@ -297,7 +299,7 @@ struct ProfileView: View {
 
             levelProgressSection(score: profile.totalScore)
 
-            avatarPickerSection(score: profile.totalScore, allowAll: false)
+            avatarPickerSection(score: profile.totalScore)
 
             Spacer(minLength: 48)
         }
@@ -471,7 +473,7 @@ struct ProfileView: View {
             .clipShape(Circle())
     }
 
-    private func avatarPickerSection(score: Int, allowAll: Bool) -> some View {
+    private func avatarPickerSection(score: Int) -> some View {
         VStack(alignment: .center, spacing: 12) {
             Text("اختر فارس الميدان :")
                 .font(.headline)
@@ -484,7 +486,7 @@ struct ProfileView: View {
                     Spacer(minLength: 0)
                     ForEach(Array((1...ProfileLevel.maxLevel).reversed()), id: \.self) { level in
                         let avatarName = PlayerAvatars.avatar(forLevel: level)
-                        let unlocked = allowAll || ProfileLevel.isUnlocked(level: level, score: score)
+                        let unlocked = ProfileLevel.isUnlocked(level: level, score: score)
                         AvatarLevelCard(
                             level: level,
                             avatarName: avatarName,
@@ -565,12 +567,19 @@ private struct AvatarLevelCard: View {
                     .fontWeight(.bold)
                     .foregroundColor(.black)
 
-                Image(avatarName)
-                    .resizable()
-                    .scaledToFit()
-                    .padding(6)
-                    .frame(width: 72, height: 72)
-                    .opacity(isUnlocked ? 1 : 0.35)
+                ZStack {
+                    Image(avatarName)
+                        .resizable()
+                        .scaledToFit()
+                        .padding(6)
+                        .frame(width: 72, height: 72)
+                        .opacity(isUnlocked ? 1 : 0.35)
+                    if !isUnlocked {
+                        Image(systemName: "lock.fill")
+                            .font(.title3)
+                            .foregroundColor(AppTheme.textSecondary)
+                    }
+                }
             }
             .frame(width: 108, height: 148)
             .background(Color.white)

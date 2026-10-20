@@ -23,11 +23,13 @@ struct LobbyView: View {
     @State private var showLeaderboard: Bool = false
     @State private var showInvitations: Bool = false
     @State private var playerCount: Int = 0
+    @Binding var showLobby: Bool
     let isHost: Bool
     
-    init(multipeerService: MultipeerService, isHost: Bool) {
+    init(multipeerService: MultipeerService, isHost: Bool, showLobby: Binding<Bool>) {
         self.multipeerService = multipeerService
         self.isHost = isHost
+        _showLobby = showLobby
         _gameManager = StateObject(wrappedValue: GameManager(multipeerService: multipeerService))
     }
     
@@ -173,19 +175,22 @@ struct LobbyView: View {
                         gameManager.beginGameplay()
                     }
                 },
-                onExit: {
-                    showTimer = false
-                    multipeerService.stop()
-                    gameManager.resetForLobby()
-                    setupLobby()
-                }
+                onExit: exitToUsernameEntry
             )
         }
         .fullScreenCover(isPresented: $showGame) {
-            GameView(gameManager: gameManager, multipeerService: multipeerService)
+            GameView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: exitToUsernameEntry
+            )
         }
         .fullScreenCover(isPresented: $showLeaderboard) {
-            LeaderboardView(gameManager: gameManager, multipeerService: multipeerService)
+            LeaderboardView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: exitToUsernameEntry
+            )
         }
         .onChange(of: multipeerService.pendingInvitations.count) { count in
             if count > 0 && !isHost {
@@ -206,17 +211,21 @@ struct LobbyView: View {
         }
     }
     
+    private func exitToUsernameEntry() {
+        showTimer = false
+        showGame = false
+        showLeaderboard = false
+        showInvitations = false
+        multipeerService.stop()
+        BackgroundMusicManager.shared.stopBackgroundMusic()
+        gameManager.resetForLobby()
+        showLobby = false
+    }
+
     private var headerSection: some View {
         HStack {
-            // Back button
-//            Button(action: {
-//                dismiss()
-//            }) {
-//                Image(systemName: "chevron.left")
-//                    .font(.system(size: 20, weight: .semibold))
-//                    .foregroundColor(.black)
-//            }
-            
+            GameExitConfirmButton(onConfirm: exitToUsernameEntry)
+
             Spacer()
             
             // Title
@@ -468,7 +477,8 @@ print("   Current players in gameManager: \(gameManager.players.count)")
 #Preview {
     LobbyView(
         multipeerService: MultipeerService(),
-        isHost: true
+        isHost: true,
+        showLobby: .constant(true)
     )
 }
 

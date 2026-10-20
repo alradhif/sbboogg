@@ -21,7 +21,7 @@ struct ContentView: View {
                     .ignoresSafeArea()
                 
                 if showLobby {
-                    LobbyView(multipeerService: multipeerService, isHost: isHost)
+                    LobbyView(multipeerService: multipeerService, isHost: isHost, showLobby: $showLobby)
                 } else {
                     UsernameEntryView(
                         username: $username,

@@ -47,15 +47,18 @@ enum ProfileLevel {
     static let maxLevel = 4
     static let pointsPerLevel = 100
     
-    /// المستوى ١ فوق ١٠٠، المستوى ٢ فوق ٢٠٠، ...
+    /// المستوى ١ حتى ١٩٩ نقطة، ثم ٢ من ٢٠٠، ٣ من ٣٠٠، ٤ من ٤٠٠
     static func currentLevel(score: Int) -> Int {
-        max(1, min(maxLevel, score / pointsPerLevel))
+        if score < 2 * pointsPerLevel { return 1 }
+        return max(1, min(maxLevel, score / pointsPerLevel))
     }
-    
+
     static func nextThreshold(currentLevel: Int) -> Int {
-        (currentLevel + 1) * pointsPerLevel
+        if currentLevel >= maxLevel { return currentLevel * pointsPerLevel }
+        return (currentLevel + 1) * pointsPerLevel
     }
-    
+
+    /// المستوى ١ دائماً؛ ٢ يفتح من ٢٠٠، ٣ من ٣٠٠، ٤ من ٤٠٠
     static func isUnlocked(level: Int, score: Int) -> Bool {
         level == 1 || score >= level * pointsPerLevel
     }

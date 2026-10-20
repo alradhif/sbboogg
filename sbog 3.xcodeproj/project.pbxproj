@@ -26,7 +26,6 @@
 		B95D543ECC0A439199485BEA /* MultipeerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF0D705C0A724B8999A2E1ED /* MultipeerService.swift */; };
 		D00865A12FE848F600D289A4 /* happy.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = D00865A02FE848F600D289A4 /* happy.mp4 */; };
 		D00865A22FE848F600D289A4 /* happy.mp4 in Resources */ = {isa = PBXBuildFile; fileRef = D00865A02FE848F600D289A4 /* happy.mp4 */; };
-		D042F0E72F1318D10099146F /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D042F0E62F1318D10099146F /* Vision.framework */; };
 		D042F0EB2F146F970099146F /* VisionClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = D042F0EA2F146F950099146F /* VisionClassifier.swift */; };
 		D0A633FC2EF149A600098FE2 /* run.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = D0A633FB2EF149A600098FE2 /* run.mp3 */; };
 		D0E87A8D2EF0232E00C45355 /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D0E87A8C2EF0232E00C45355 /* Media.xcassets */; };
@@ -35,6 +34,14 @@
 		F0B1E2C40A1B2C3D4E5F6789 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B1E2C30A1B2C3D4E5F6789 /* SplashView.swift */; };
 		F0C1D2E3A4B5C6D7E8F9A0B1 /* MainPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */; };
 		F0C1D2E3A4B5C6D7E8F9A0B3 /* MainView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */; };
+		O4P3N41C0NF1G2A3B4C5D6E7 /* OpenAIConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */; };
+		O4P3N41K3Y5T0R4G3SW1FT01 /* OpenAIKeyStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = O4P3N41K3Y5T0R4G3SW1FT02 /* OpenAIKeyStorage.swift */; };
+		G4M3EX1TBTN5W1FT5F1L3R01 /* GameExitConfirmButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */; };
+		D042F0E72F1318D10099146F /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D042F0E62F1318D10099146F /* Vision.framework */; };
+		L1V3D3T3CT0R5W1FT1N50URC01 /* LiveCameraObjectDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */; };
+		C4M3R4OV3RL4YV1EW1N50URC01 /* CameraDetectionOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4M3R4OV3RL4YV1EW1N50URC02 /* CameraDetectionOverlayView.swift */; };
+		0BJ3CTD1SP4YN4M3SW1FT1N01 /* ObjectDisplayNames.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BJ3CTD1SP4YN4M3SW1FT1N02 /* ObjectDisplayNames.swift */; };
+		S3CR3T5PL1ST1NRES0URC3S01 /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = S3CR3T5PL1ST1NRES0URC3S02 /* Secrets.plist */; };
 		T1M3RV13W5W1FT5F1L3R3F01 /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */; };
 /* End PBXBuildFile section */
 
@@ -68,6 +75,9 @@
 		D00865A02FE848F600D289A4 /* happy.mp4 */ = {isa = PBXFileReference; lastKnownFileType = file; path = happy.mp4; sourceTree = "<group>"; };
 		D042F0E62F1318D10099146F /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = System/Library/Frameworks/Vision.framework; sourceTree = SDKROOT; };
 		D042F0EA2F146F950099146F /* VisionClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionClassifier.swift; sourceTree = "<group>"; };
+		L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraObjectDetector.swift; sourceTree = "<group>"; };
+		C4M3R4OV3RL4YV1EW1N50URC02 /* CameraDetectionOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraDetectionOverlayView.swift; sourceTree = "<group>"; };
+		0BJ3CTD1SP4YN4M3SW1FT1N02 /* ObjectDisplayNames.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectDisplayNames.swift; sourceTree = "<group>"; };
 		D08832CE2F0DDD6900CD7A80 /* sbogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = sbogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D0A633FB2EF149A600098FE2 /* run.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = run.mp3; sourceTree = "<group>"; };
 		D0E87A8C2EF0232E00C45355 /* Media.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Media.xcassets; sourceTree = "<group>"; };
@@ -79,6 +89,10 @@
 		F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainPageView.swift; sourceTree = "<group>"; };
 		F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView2.swift; sourceTree = "<group>"; };
 		F7A8B9C0D1E2F3A4B5C6D7E8 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIConfiguration.swift; sourceTree = "<group>"; };
+		O4P3N41K3Y5T0R4G3SW1FT02 /* OpenAIKeyStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIKeyStorage.swift; sourceTree = "<group>"; };
+		G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameExitConfirmButton.swift; sourceTree = "<group>"; };
+		S3CR3T5PL1ST1NRES0URC3S02 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.plist; sourceTree = "<group>"; };
 		T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -133,7 +147,14 @@
 				DF8E1ACD6CE24F61AB09CEB7 /* ProfileManager.swift */,
 				132B29352301411D92B989D4 /* ProfileView.swift */,
 				D042F0EA2F146F950099146F /* VisionClassifier.swift */,
+				O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */,
+				O4P3N41K3Y5T0R4G3SW1FT02 /* OpenAIKeyStorage.swift */,
+				G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */,
+				S3CR3T5PL1ST1NRES0URC3S02 /* Secrets.plist */,
 				F7A8B9C0D1E2F3A4B5C6D7E8 /* CameraView.swift */,
+				L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */,
+				C4M3R4OV3RL4YV1EW1N50URC02 /* CameraDetectionOverlayView.swift */,
+				0BJ3CTD1SP4YN4M3SW1FT1N02 /* ObjectDisplayNames.swift */,
 				F0B1E2C30A1B2C3D4E5F6789 /* SplashView.swift */,
 				F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */,
 				F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */,
@@ -250,6 +271,7 @@
 				A9AAF4C62EF1A592005FE05F /* gameplaybackground.mp3 in Resources */,
 				D0A633FC2EF149A600098FE2 /* run.mp3 in Resources */,
 				A9AAF4C22EF19851005FE05F /* winner.mp3 in Resources */,
+				S3CR3T5PL1ST1NRES0URC3S01 /* Secrets.plist in Resources */,
 				D0E87A8D2EF0232E00C45355 /* Media.xcassets in Resources */,
 				D00865A12FE848F600D289A4 /* happy.mp4 in Resources */,
 				E1F2A3B4C5D6E7F8A9B0C1D3 /* scared.mp4 in Resources */,
@@ -286,7 +308,13 @@
 				A94A669C64FF4213967F9823 /* ProfileManager.swift in Sources */,
 				2F20D48569464B10AC06AFC4 /* ProfileView.swift in Sources */,
 				D042F0EB2F146F970099146F /* VisionClassifier.swift in Sources */,
+				O4P3N41C0NF1G2A3B4C5D6E7 /* OpenAIConfiguration.swift in Sources */,
+				O4P3N41K3Y5T0R4G3SW1FT01 /* OpenAIKeyStorage.swift in Sources */,
+				G4M3EX1TBTN5W1FT5F1L3R01 /* GameExitConfirmButton.swift in Sources */,
 				E5F6A7B8C9D0E1F2A3B4C5D6 /* CameraView.swift in Sources */,
+				L1V3D3T3CT0R5W1FT1N50URC01 /* LiveCameraObjectDetector.swift in Sources */,
+				C4M3R4OV3RL4YV1EW1N50URC01 /* CameraDetectionOverlayView.swift in Sources */,
+				0BJ3CTD1SP4YN4M3SW1FT1N01 /* ObjectDisplayNames.swift in Sources */,
 				F0B1E2C40A1B2C3D4E5F6789 /* SplashView.swift in Sources */,
 				F0C1D2E3A4B5C6D7E8F9A0B1 /* MainPageView.swift in Sources */,
 				F0C1D2E3A4B5C6D7E8F9A0B3 /* MainView2.swift in Sources */,
@@ -377,7 +405,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 926RL8LN8F;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "سبٌوق";
@@ -392,7 +420,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww100000;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rimahakmi.sabouq;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -409,7 +437,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = 926RL8LN8F;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "سبٌوق";
@@ -424,7 +452,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.sbog.neww100000;
+				PRODUCT_BUNDLE_IDENTIFIER = com.rimahakmi.sabouq;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;

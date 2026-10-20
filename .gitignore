@@ -1,6 +1,7 @@
 # Xcode
 build/
 DerivedData/
+DerivedData/
 *.xcuserstate
 *.xcuserdatad/
 *.moved-aside
@@ -20,3 +21,6 @@ xcuserdata/
 # Swift Package Manager
 .build/
 .swiftpm/
+
+# API keys (copy Secrets.plist.example → Secrets.plist)
+Secrets.plist

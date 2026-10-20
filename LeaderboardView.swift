@@ -12,11 +12,10 @@ import AVFoundation
 struct LeaderboardView: View {
     @ObservedObject var gameManager: GameManager
     @ObservedObject var multipeerService: MultipeerService
+    var onExitGame: () -> Void
     @Environment(\.modelContext) private var modelContext
     @StateObject private var profileManager = ProfileManager()
-    @State private var navigateToUsernameEntry = false
     @State private var animateHero = false
-    @Environment(\.dismiss) private var dismiss
 
     private var winner: Player? {
         gameManager.leaderboard.first
@@ -97,32 +96,11 @@ struct LeaderboardView: View {
         .onDisappear {
             SoundManager.stopAudio()
         }
-        .fullScreenCover(isPresented: $navigateToUsernameEntry) {
-            NavigationView {
-                UsernameEntryView(
-                    username: .constant(""),
-                    showLobby: .constant(false),
-                    isHost: .constant(false),
-                    multipeerService: MultipeerService()
-                )
-            }
-        }
     }
 
     private var headerBar: some View {
         HStack {
-            Button {
-                goToUsernameEntry()
-            } label: {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(AppTheme.accent)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-            }
-
+            GameExitConfirmButton(onConfirm: goToUsernameEntry)
             Spacer()
         }
     }
@@ -280,9 +258,10 @@ struct LeaderboardView: View {
     }
 
     private func goToUsernameEntry() {
+        SoundManager.stopAudio()
         multipeerService.stop()
         BackgroundMusicManager.shared.stopBackgroundMusic()
-        navigateToUsernameEntry = true
+        onExitGame()
     }
 
     private func arabicNumeral(_ value: Int) -> String {
@@ -316,7 +295,8 @@ class SoundManager {
 #Preview {
     LeaderboardView(
         gameManager: GameManager(multipeerService: MultipeerService()),
-        multipeerService: MultipeerService()
+        multipeerService: MultipeerService(),
+        onExitGame: {}
     )
     .modelContainer(
         for: [Player.self, GameSession.self, PlayerProfile.self],
