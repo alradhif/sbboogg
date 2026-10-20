@@ -137,6 +137,24 @@ struct UsernameEntryView: View {
                             }
                             .disabled(username.isEmpty)
                             .padding(.horizontal, 32)
+
+                            NavigationLink {
+                                OnlineRoomView(
+                                    username: username.trimmingCharacters(in: .whitespaces),
+                                    avatarImageName: profileAvatarName
+                                )
+                            } label: {
+                                Label("العب أونلاين مع ربعك البعيدين", systemImage: "globe")
+                                    .font(.appHeadline)
+                                    .foregroundColor(AppTheme.accent)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(AppTheme.surface)
+                                    .cornerRadius(24)
+                                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
+                            }
+                            .disabled(username.isEmpty)
+                            .padding(.horizontal, 32)
                         }
                         .padding(.top, 10)
 

@@ -35,6 +35,9 @@ struct sbogApp: App {
     var body: some Scene {
         WindowGroup {
             Splash()
+                .onOpenURL { url in
+                    AuthService.shared.handle(url)
+                }
         }
         .modelContainer(sharedModelContainer)
     }

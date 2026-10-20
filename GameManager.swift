@@ -40,6 +40,20 @@ class GameManager: ObservableObject {
     
     /// Every round won first, used as the finish line of the race track.
     var maxPossibleScore: Int { challenges.count * 2 }
+
+    /// Set when this game is played online; rounds and scores then come from Supabase.
+    weak var onlineRoom: OnlineRoom?
+    var isOnline: Bool { onlineRoom != nil }
+
+    /// How this phone's player is identified in `players`.
+    var myPlayerKey: String {
+        if let id = onlineRoom?.myID { return id.uuidString }
+        return multipeerService.myPeerID.displayName
+    }
+
+    func recordOnlineResult(score: Int, won: Bool) {
+        profileManager?.recordLocalResult(gameScore: score, won: won)
+    }
     
     init(multipeerService: MultipeerService, profileManager: ProfileManager? = nil) {
         self.multipeerService = multipeerService
