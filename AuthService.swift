@@ -13,8 +13,8 @@ import Supabase
 
 enum SupabaseConfig {
     // Supabase dashboard → Project Settings → API. The anon key is safe to ship in the app.
-    static let url = URL(string: "https://YOUR-PROJECT-REF.supabase.co")!
-    static let anonKey = "YOUR-ANON-KEY"
+    static let url = URL(string: "https://rhrssponipcbvvisbppv.supabase.co")!
+    static let anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJocnNzcG9uaXBjYnZ2aXNicHB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MDg1NTIsImV4cCI6MjEwODA4NDU1Mn0.Mk55CH0kXy2mEXpLbf1a7uwlW56HYlFr5yBx6CAO7II"
 
     // Must match the URL scheme in Info.plist and a Redirect URL in Supabase → Authentication → URL Configuration.
     static let callbackScheme = "sbog"
