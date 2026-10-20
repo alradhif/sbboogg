@@ -39,6 +39,9 @@ struct GameView: View {
                     HStack {
                         Button {
                             multipeerService.stop()
+                            if let room = gameManager.onlineRoom {
+                                Task { await room.leave() }
+                            }
                             BackgroundMusicManager.shared.stopBackgroundMusic()
                             navigateToUsernameEntry = true
                         } label: {
@@ -156,7 +159,7 @@ struct GameView: View {
                     RaceTrackView(
                         players: gameManager.players,
                         maxScore: gameManager.maxPossibleScore,
-                        myPeerID: multipeerService.myPeerID.displayName
+                        myPeerID: gameManager.myPlayerKey
                     )
                     .padding(.horizontal, 20)
 
@@ -229,6 +232,17 @@ struct GameView: View {
         lastClassificationWasSuccess = found
         if found {
             hasReportedFind = true
+            if let room = gameManager.onlineRoom {
+                // Online: the server decides the points (first finder, round type, pen bonus).
+                Task { @MainActor in
+                    let points = await room.submitFind(label: challenge.objectName, confidence: confidence)
+                    resultMessage = points.map {
+                        String(format: NSLocalizedString("Found %@! +%d points", comment: ""), challenge.objectName, $0)
+                    } ?? NSLocalizedString("الشوط خلص قبل ما توصل لقطتك.", comment: "")
+                    showResult = true
+                }
+                return
+            }
             let points = gameManager.submitObjectFound(found: true, confidence: confidence) ?? 0
             resultMessage = String(
                 format: NSLocalizedString("Found %@! +%d points", comment: ""),
