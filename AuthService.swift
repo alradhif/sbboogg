@@ -19,6 +19,8 @@ enum SupabaseConfig {
     // Must match the URL scheme in Info.plist and a Redirect URL in Supabase → Authentication → URL Configuration.
     static let callbackScheme = "sbog"
     static let redirectURL = URL(string: "sbog://login-callback")!
+
+    static var isConfigured: Bool { !url.absoluteString.contains("YOUR-PROJECT-REF") && anonKey != "YOUR-ANON-KEY" }
 }
 
 let supabase = SupabaseClient(supabaseURL: SupabaseConfig.url, supabaseKey: SupabaseConfig.anonKey)
@@ -150,8 +152,10 @@ private final class WebAuthSession: NSObject, ASWebAuthenticationPresentationCon
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
-            .first ?? ASPresentationAnchor()
+        MainActor.assumeIsolated {
+            UIApplication.shared.connectedScenes
+                .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+                .first ?? ASPresentationAnchor()
+        }
     }
 }

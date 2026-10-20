@@ -188,6 +188,8 @@ struct ProfileView: View {
 
                     musicSection
 
+                    OnlineAccountSection()
+
                     Spacer()
                 }
                 .padding(.horizontal, 24)

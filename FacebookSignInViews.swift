@@ -2,8 +2,8 @@
 //  FacebookSignInViews.swift
 //  sbog
 //
-//  Buttons for online sign-in. SignInOptionsView goes before online play;
-//  LinkFacebookButton goes in ProfileView for players who are still guests.
+//  Buttons for online sign-in. OnlineAccountSection sits in the profile settings
+//  sheet; SignInOptionsView can also go before online play.
 //
 
 import SwiftUI
@@ -49,7 +49,6 @@ struct SignInOptionsView: View {
                     .multilineTextAlignment(.center)
             }
         }
-        .padding(.horizontal, 28)
     }
 }
 
@@ -80,6 +79,44 @@ struct LinkFacebookButton: View {
                 .font(.appCaption)
                 .foregroundColor(AppTheme.success)
         }
+    }
+}
+
+/// The "الحساب" block in the profile settings sheet.
+struct OnlineAccountSection: View {
+    @ObservedObject var auth = AuthService.shared
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("الحساب")
+                .font(.appHeadline)
+                .foregroundColor(AppTheme.textPrimary)
+
+            if !SupabaseConfig.isConfigured {
+                Text("حط رابط مشروع Supabase والمفتاح في SupabaseConfig داخل AuthService.swift")
+                    .font(.appCaption)
+                    .foregroundColor(AppTheme.error)
+                    .multilineTextAlignment(.center)
+            }
+
+            switch auth.state {
+            case .loading:
+                ProgressView()
+            case .signedOut:
+                SignInOptionsView()
+            case .guest, .facebook:
+                LinkFacebookButton()
+                Button("تسجيل خروج") {
+                    Task { await auth.signOut() }
+                }
+                .font(.appCaption)
+                .foregroundColor(AppTheme.textSecondary)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(AppTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
 
@@ -117,5 +154,6 @@ private struct FacebookButton: View {
     ZStack {
         AppTheme.background.ignoresSafeArea()
         SignInOptionsView()
+            .padding(.horizontal, 28)
     }
 }
