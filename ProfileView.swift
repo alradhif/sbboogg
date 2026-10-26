@@ -190,6 +190,8 @@ struct ProfileView: View {
 
                     musicSection
 
+                    OnlineAccountSection()
+
                     Spacer()
                 }
                 .padding(.horizontal, 24)
@@ -217,7 +219,7 @@ struct ProfileView: View {
         let trimmed = setupName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, multipeerService != nil else { return }
 
-        _ = profileManager.getOrCreateProfile(username: trimmed)
+        _ = profileManager.getOrCreateLocalProfile(username: trimmed)
         profileManager.updateAvatar(selectedAvatar)
         setupUsername = trimmed
         navigateToUsernameEntry = true
@@ -400,7 +402,7 @@ struct ProfileView: View {
             Rectangle()
                 .fill(AppTheme.textSecondary.opacity(0.25))
                 .frame(width: 1, height: 44)
-            statItem(value: "\(profile.totalGamesPlayed)", title: "شطور")
+            statItem(value: "\(profile.totalGamesPlayed)", title: "شوط")
         }
         .padding(.vertical, 8)
         .frame(maxWidth: 280)

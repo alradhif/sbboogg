@@ -65,6 +65,7 @@ final class PlayerProfile: Identifiable {
     var createdAt: Date
     var lastPlayed: Date
     var avatarImageName: String = PlayerAvatars.defaultName
+    var isLocalPlayer: Bool = false
     
     init(
         id: UUID = UUID(),
@@ -76,7 +77,8 @@ final class PlayerProfile: Identifiable {
         gamesWon: Int = 0,
         createdAt: Date = Date(),
         lastPlayed: Date = Date(),
-        avatarImageName: String = PlayerAvatars.defaultName
+        avatarImageName: String = PlayerAvatars.defaultName,
+        isLocalPlayer: Bool = false
     ) {
         self.id = id
         self.username = username
@@ -88,6 +90,7 @@ final class PlayerProfile: Identifiable {
         self.createdAt = createdAt
         self.lastPlayed = lastPlayed
         self.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
+        self.isLocalPlayer = isLocalPlayer
     }
     
     func updateStats(gameScore: Int, won: Bool) {

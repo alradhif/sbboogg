@@ -451,6 +451,12 @@ print("   Current players in gameManager: \(gameManager.players.count)")
         // Remove disconnected players (but keep self)
         let connectedPeerDisplayNames = Set(peers.map { $0.displayName })
         let myPeerDisplayName = multipeerService.myPeerID.displayName
+        let disconnected = gameManager.players.filter { player in
+            !connectedPeerDisplayNames.contains(player.peerID) && player.peerID != myPeerDisplayName
+        }
+        for player in disconnected {
+            gameManager.handleFirstPlayerLeftDuringGame(player)
+        }
         let beforeRemove = gameManager.players.count
         gameManager.players.removeAll { player in
             let shouldRemove = !connectedPeerDisplayNames.contains(player.peerID) && player.peerID != myPeerDisplayName

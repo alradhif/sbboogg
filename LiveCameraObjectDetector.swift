@@ -15,24 +15,29 @@ struct LiveDetection: Identifiable, Equatable {
 }
 
 final class LiveCameraObjectDetector {
-    private let visionQueue = DispatchQueue(label: "sbog.live.vision", qos: .userInitiated)
+    private let visionQueue = DispatchQueue(label: "sbog.live.vision", qos: .utility)
     private let sequenceHandler = VNSequenceRequestHandler()
     private var frameIndex = 0
     private var lastTopLabels: [(String, Float)] = []
+    private var visionWorkActive = false
+    private var lastUIEmitTime: CFAbsoluteTime = 0
 
     var onDetections: (([LiveDetection]) -> Void)?
 
     func process(sampleBuffer: CMSampleBuffer, targetObject: String) {
         frameIndex += 1
-        guard frameIndex % 2 == 0 else { return }
+        guard frameIndex % 5 == 0 else { return }
+        guard !visionWorkActive else { return }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let orientation = cgImageOrientation(from: sampleBuffer)
 
+        visionWorkActive = true
         visionQueue.async { [weak self] in
             guard let self else { return }
+            defer { self.visionWorkActive = false }
 
-            if self.frameIndex % 8 == 0 {
+            if self.frameIndex % 20 == 0 {
                 self.refreshLabels(pixelBuffer: pixelBuffer, orientation: orientation)
             }
 
@@ -79,6 +84,9 @@ final class LiveCameraObjectDetector {
 
             let prioritized = self.prioritize(detections, synonyms: synonyms, targetObject: targetObject)
             DispatchQueue.main.async {
+                let now = CFAbsoluteTimeGetCurrent()
+                guard now - self.lastUIEmitTime >= 0.14 else { return }
+                self.lastUIEmitTime = now
                 self.onDetections?(prioritized)
             }
         }
@@ -87,6 +95,8 @@ final class LiveCameraObjectDetector {
     func reset() {
         frameIndex = 0
         lastTopLabels = []
+        visionWorkActive = false
+        lastUIEmitTime = 0
         DispatchQueue.main.async { self.onDetections?([]) }
     }
 

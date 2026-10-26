@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct GameView: View {
     @ObservedObject var gameManager: GameManager
@@ -17,8 +18,6 @@ struct GameView: View {
     @State private var capturedImage: UIImage?
     @State private var classificationResult: String?
     @State private var isImageCaptured: Bool = false
-    @State private var showResult: Bool = false
-    @State private var resultMessage: String = ""
     @State private var showLeaderboard: Bool = false
     @State private var hasReportedFind: Bool = false
     @State private var objectFoundByOthers: String? = nil
@@ -30,12 +29,12 @@ struct GameView: View {
             AppTheme.background.ignoresSafeArea()
 
             GeometryReader { geo in
-                let cameraHeight = min(geo.size.height * 0.55, 520)
+                let cameraHeight = min(geo.size.height * 0.46, 440)
                 let targetName = gameManager.currentChallenge?.objectName ?? NSLocalizedString("العنصر", comment: "")
 
                 VStack(spacing: 16) {
                     HStack {
-                        GameExitConfirmButton(onConfirm: onExitGame)
+                        GameExitConfirmButton(onConfirm: exitFromGame)
 
                         Spacer()
                     }
@@ -156,6 +155,13 @@ struct GameView: View {
                     }
                     .padding(.horizontal, 20)
 
+                    RaceTrackView(
+                        players: gameManager.players,
+                        maxScore: gameManager.maxPossibleScore,
+                        myPeerID: gameManager.myPlayerKey
+                    )
+                    .padding(.horizontal, 20)
+
                     if let result = classificationResult {
                         Text(result)
                             .font(.appHeadline)
@@ -175,15 +181,9 @@ struct GameView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .alert("النتيجة", isPresented: $showResult) {
-            Button("حسناً") {
-                showResult = false
-                if lastClassificationWasSuccess == true {
-                    resetCamera()
-                }
-            }
-        } message: {
-            Text(resultMessage)
+        .onChange(of: gameManager.currentRound) { _, _ in
+            visionClassifier.cancelPending()
+            resetCamera(immediate: true)
         }
         .onChange(of: gameManager.gameEnded) { ended in
             if ended { showLeaderboard = true }
@@ -228,23 +228,50 @@ struct GameView: View {
 
         if found {
             hasReportedFind = true
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if let room = gameManager.onlineRoom {
+                Task { @MainActor in
+                    let points = await room.submitFind(label: challenge.objectName, confidence: confidence)
+                    if let points {
+                        classificationResult = "صح! \(arabicName(for: challenge.objectName)) +\(points) نقطة"
+                    } else {
+                        classificationResult = "الشوط خلص قبل ما توصل لقطتك."
+                    }
+                }
+                return
+            }
             let points = gameManager.submitObjectFound(found: true, confidence: confidence) ?? 0
-            resultMessage = "صح! \(arabicName(for: challenge.objectName))\n\(detail)\n+\(points) نقطة"
-            showResult = true
+            classificationResult = "صح! \(arabicName(for: challenge.objectName))\n\(detail)\n+\(points) نقطة"
         } else {
-            resultMessage = "مو صحيح.\n\(detail)\nجربي تصوير \(arabicName(for: challenge.objectName)) أوضح."
-            showResult = true
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            classificationResult = "مو صحيح.\n\(detail)\nجربي تصوير \(arabicName(for: challenge.objectName)) أوضح."
         }
     }
 
-    func resetCamera() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+    private func exitFromGame() {
+        multipeerService.stop()
+        BackgroundMusicManager.shared.stopBackgroundMusic()
+        if let room = gameManager.onlineRoom {
+            Task { await room.leave() }
+        }
+        onExitGame()
+    }
+
+    func resetCamera(immediate: Bool = false) {
+        let apply = {
             capturedImage = nil
             classificationResult = nil
             isImageCaptured = false
             hasReportedFind = false
             objectFoundByOthers = nil
             lastClassificationWasSuccess = nil
+        }
+        if immediate {
+            apply()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                apply()
+            }
         }
     }
 }

@@ -58,6 +58,18 @@ struct LeaderboardView: View {
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
 
+                    if let notice = gameManager.opponentLeftNotice {
+                        Text(notice)
+                            .font(.appHeadline)
+                            .foregroundColor(AppTheme.textPrimary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 28)
+                            .padding(.vertical, 12)
+                            .background(AppTheme.surface.opacity(0.85))
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .padding(.horizontal, 20)
+                    }
+
                     if userIsWinner {
                         winnerContent
                     } else {

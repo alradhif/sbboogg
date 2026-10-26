@@ -9,12 +9,21 @@ final class VisionClassifier: ObservableObject {
 
     @Published var isClassifying = false
 
+    private var classifyGeneration: UInt = 0
+    private let prepQueue = DispatchQueue(label: "sbog.vision.prep", qos: .userInitiated)
+
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 60
         config.timeoutIntervalForResource = 90
         return URLSession(configuration: config)
     }()
+
+    /// يُلغي أي طلب تحليل قيد الانتظار (مثلاً عند بدء جولة جديدة).
+    func cancelPending() {
+        classifyGeneration += 1
+        DispatchQueue.main.async { self.isClassifying = false }
+    }
 
     func classifyImage(
         _ image: UIImage,
@@ -27,54 +36,73 @@ final class VisionClassifier: ObservableObject {
             return
         }
 
-        guard let jpegData = resizedJPEGData(from: image.normalizedForVision()) else {
-            completion(false, 0.0, "تعذّر تجهيز الصورة")
-            return
-        }
-
+        classifyGeneration += 1
+        let generation = classifyGeneration
         let target = targetObject.trimmingCharacters(in: .whitespacesAndNewlines)
-        let prompt = visionPrompt(for: target)
-        let base64 = jpegData.base64EncodedString()
-        let dataURL = "data:image/jpeg;base64,\(base64)"
-
-        let body: [String: Any] = [
-            "model": OpenAIConfiguration.visionModel,
-            "response_format": ["type": "json_object"],
-            "max_tokens": 120,
-            "messages": [
-                [
-                    "role": "user",
-                    "content": [
-                        ["type": "text", "text": prompt],
-                        ["type": "image_url", "image_url": ["url": dataURL, "detail": "low"]]
-                    ]
-                ]
-            ]
-        ]
-
-        var request = URLRequest(url: OpenAIConfiguration.chatCompletionsURL)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        } catch {
-            completion(false, 0.0, "خطأ في الطلب")
-            return
-        }
 
         DispatchQueue.main.async { self.isClassifying = true }
 
-        session.dataTask(with: request) { [weak self] data, response, error in
-            defer {
-                DispatchQueue.main.async { self?.isClassifying = false }
-            }
+        prepQueue.async { [weak self] in
+            guard let self else { return }
+            guard generation == self.classifyGeneration else { return }
 
-            if let error = error {
-                completion(false, 0.0, error.localizedDescription)
+            guard let jpegData = self.resizedJPEGData(from: image.normalizedForVision()) else {
+                DispatchQueue.main.async {
+                    if generation == self.classifyGeneration { self.isClassifying = false }
+                    completion(false, 0.0, "تعذّر تجهيز الصورة")
+                }
                 return
             }
+
+            let prompt = self.visionPrompt(for: target)
+            let base64 = jpegData.base64EncodedString()
+            let dataURL = "data:image/jpeg;base64,\(base64)"
+
+            let body: [String: Any] = [
+                "model": OpenAIConfiguration.visionModel,
+                "response_format": ["type": "json_object"],
+                "max_tokens": 80,
+                "messages": [
+                    [
+                        "role": "user",
+                        "content": [
+                            ["type": "text", "text": prompt],
+                            ["type": "image_url", "image_url": ["url": dataURL, "detail": "low"]]
+                        ]
+                    ]
+                ]
+            ]
+
+            var request = URLRequest(url: OpenAIConfiguration.chatCompletionsURL)
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.timeoutInterval = 25
+
+            do {
+                request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            } catch {
+                DispatchQueue.main.async {
+                    if generation == self.classifyGeneration { self.isClassifying = false }
+                    completion(false, 0.0, "خطأ في الطلب")
+                }
+                return
+            }
+
+            self.session.dataTask(with: request) { [weak self] data, response, error in
+                defer {
+                    DispatchQueue.main.async {
+                        guard let self, generation == self.classifyGeneration else { return }
+                        self.isClassifying = false
+                    }
+                }
+
+                guard generation == self?.classifyGeneration else { return }
+
+                if let error = error {
+                    completion(false, 0.0, error.localizedDescription)
+                    return
+                }
 
             guard let data = data else {
                 completion(false, 0.0, "لا توجد استجابة من الخادم")
@@ -99,7 +127,8 @@ final class VisionClassifier: ObservableObject {
             let accepted = parsed.found && confidence >= 0.45
             print("🔍 OpenAI: target=\(target) found=\(parsed.found) conf=\(confidence) accepted=\(accepted)")
             completion(accepted, confidence, display)
-        }.resume()
+            }.resume()
+        }
     }
 
     // MARK: - Helpers
@@ -132,7 +161,7 @@ final class VisionClassifier: ObservableObject {
         }
     }
 
-    private func resizedJPEGData(from image: UIImage, maxDimension: CGFloat = 1024, quality: CGFloat = 0.72) -> Data? {
+    private func resizedJPEGData(from image: UIImage, maxDimension: CGFloat = 768, quality: CGFloat = 0.68) -> Data? {
         let size = image.size
         let maxSide = max(size.width, size.height)
         let scale = maxSide > maxDimension ? maxDimension / maxSide : 1

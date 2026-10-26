@@ -97,7 +97,7 @@ struct CameraPreviewView: UIViewControllerRepresentable {
 
         func setupCamera() {
             captureSession = AVCaptureSession()
-            captureSession.sessionPreset = .photo
+            captureSession.sessionPreset = .high
 
             guard let backCamera = AVCaptureDevice.default(for: .video) else {
                 print("❌ Unable to access back camera!")
@@ -226,20 +226,18 @@ extension CameraPreviewView.CameraViewController: AVCapturePhotoCaptureDelegate 
         detectionOverlay.boxes = []
         liveDetector.reset()
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            self.visionClassifier.classifyImage(image, targetObject: self.targetObject) { found, confidence, topText in
-                DispatchQueue.main.async {
-                    if found {
-                        self.classificationResult.wrappedValue = String(
-                            format: NSLocalizedString("Found %@! ✅\n%@", comment: ""),
-                            self.targetObject,
-                            topText
-                        )
-                        self.onObjectFound(true, confidence, topText)
-                    } else {
-                        self.classificationResult.wrappedValue = "❌ \(topText)"
-                        self.onObjectFound(false, confidence, topText)
-                    }
+        visionClassifier.classifyImage(image, targetObject: targetObject) { found, confidence, topText in
+            DispatchQueue.main.async {
+                if found {
+                    self.classificationResult.wrappedValue = String(
+                        format: NSLocalizedString("Found %@! ✅\n%@", comment: ""),
+                        self.targetObject,
+                        topText
+                    )
+                    self.onObjectFound(true, confidence, topText)
+                } else {
+                    self.classificationResult.wrappedValue = "❌ \(topText)"
+                    self.onObjectFound(false, confidence, topText)
                 }
             }
         }
@@ -293,24 +291,19 @@ struct CameraViewControllerWrapper: UIViewControllerRepresentable {
             picker.dismiss(animated: true) { [weak self] in
                 guard let self = self else { return }
 
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    self.isImageCaptured = true
-
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                        self.visionClassifier.classifyImage(image, targetObject: self.targetObject) { found, confidence, topText in
-                            DispatchQueue.main.async {
-                                if found {
-                                self.classificationResult = String(
-                                    format: NSLocalizedString("Found %@! ✅\n%@", comment: ""),
-                                    self.targetObject,
-                                    topText
-                                )
-                                    self.onObjectFound(true, confidence, topText)
-                                } else {
-                                    self.classificationResult = "❌ \(topText)"
-                                    self.onObjectFound(false, confidence, topText)
-                                }
-                            }
+                self.isImageCaptured = true
+                self.visionClassifier.classifyImage(image, targetObject: self.targetObject) { found, confidence, topText in
+                    DispatchQueue.main.async {
+                        if found {
+                            self.classificationResult = String(
+                                format: NSLocalizedString("Found %@! ✅\n%@", comment: ""),
+                                self.targetObject,
+                                topText
+                            )
+                            self.onObjectFound(true, confidence, topText)
+                        } else {
+                            self.classificationResult = "❌ \(topText)"
+                            self.onObjectFound(false, confidence, topText)
                         }
                     }
                 }

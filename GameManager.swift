@@ -17,6 +17,8 @@ class GameManager: ObservableObject {
     @Published var isGameActive: Bool = false
     @Published var gameEnded: Bool = false
     @Published var leaderboard: [Player] = []
+    /// رسالة للاعب الثاني إذا طلع الأول من القيم قبل النهاية.
+    @Published var opponentLeftNotice: String?
     
     private var timer: Timer?
     private let roundDuration: Int = 10
@@ -37,6 +39,20 @@ class GameManager: ObservableObject {
         ObjectChallenge(objectName: "watch", round: 9),
         ObjectChallenge(objectName: "keys", round: 10)
     ]
+
+    var maxPossibleScore: Int { challenges.count * 2 }
+
+    weak var onlineRoom: OnlineRoom?
+    var isOnline: Bool { onlineRoom != nil }
+
+    var myPlayerKey: String {
+        if let id = onlineRoom?.myID { return id.uuidString }
+        return multipeerService.myPeerID.displayName
+    }
+
+    func recordOnlineResult(score: Int, won: Bool) {
+        profileManager?.recordLocalResult(gameScore: score, won: won)
+    }
     
     init(multipeerService: MultipeerService, profileManager: ProfileManager? = nil) {
         self.multipeerService = multipeerService
@@ -93,6 +109,7 @@ class GameManager: ObservableObject {
         timer = nil
         isGameActive = false
         gameEnded = false
+        opponentLeftNotice = nil
         currentRound = 0
         currentChallenge = nil
         timeRemaining = roundDuration
@@ -102,6 +119,48 @@ class GameManager: ObservableObject {
         leaderboard = []
         players.removeAll()
         objectWillChange.send()
+    }
+
+    /// اللاعب الأول (صاحب المجموعة) قطع الاتصال أثناء القيم — للاعب الثاني في ثنائي.
+    func handleFirstPlayerLeftDuringGame(_ leftPlayer: Player) {
+        guard !isOnline, isGameActive, !gameEnded else { return }
+        guard players.first?.peerID == leftPlayer.peerID else { return }
+        guard players.count >= 2 else { return }
+
+        let myKey = multipeerService.myPeerID.displayName
+        guard players[1].peerID == myKey else { return }
+        guard leftPlayer.peerID != myKey else { return }
+
+        let myScore = players[1].score
+        applyOpponentLeftNotice(myScore: myScore, firstPlayerScore: leftPlayer.score)
+    }
+
+    func applyOpponentLeftNotice(myScore: Int, firstPlayerScore: Int) {
+        guard isGameActive, !gameEnded else { return }
+        if myScore > firstPlayerScore {
+            opponentLeftNotice = "صاحبك طلع وانت فزت لأن نقاطك أكثر"
+        } else if firstPlayerScore > myScore {
+            opponentLeftNotice = "صاحبك طلع وبرضو فاز الأول بس بنسبة قليلة"
+        } else {
+            opponentLeftNotice = "صاحبك طلع والنتيجة متعادلة"
+        }
+        endGameAfterOpponentLeft()
+    }
+
+    private func endGameAfterOpponentLeft() {
+        timer?.invalidate()
+        roundEnded = true
+        isGameActive = false
+        leaderboard = players.sorted { $0.score > $1.score }
+        saveScoresToProfiles()
+        if isOnline {
+            let key = myPlayerKey
+            if let me = leaderboard.first(where: { $0.peerID == key }) {
+                let won = leaderboard.first?.peerID == key
+                recordOnlineResult(score: me.score, won: won)
+            }
+        }
+        gameEnded = true
     }
     
     func startGame() {
@@ -117,6 +176,7 @@ class GameManager: ObservableObject {
         }
         
         isGameActive = true
+        opponentLeftNotice = nil
         currentRound = 0
         resetScores()
         
@@ -231,8 +291,8 @@ class GameManager: ObservableObject {
         roundEnded = true
         timer?.invalidate()
         
-        // Wait a moment for all object detections, then move to next round
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        // Brief pause so late answers can arrive, then next round
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()
@@ -247,8 +307,7 @@ class GameManager: ObservableObject {
         roundEnded = true
         timer?.invalidate()
         
-        // Short delay to let UIs show the success message then move on
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()
@@ -306,14 +365,23 @@ class GameManager: ObservableObject {
         // Determine winner (highest score)
         let winner = leaderboard.first
         
-        // Save scores for all players
+        let myPeerID = multipeerService.myPeerID.displayName
+        let myUsername = multipeerService.username
+
         for player in players {
             let won = winner?.username == player.username
-            profileManager.updateProfile(
-                username: player.username,
-                gameScore: player.score,
-                won: won
-            )
+            let isMe = player.peerID.isEmpty
+                ? player.username == myUsername
+                : player.peerID == myPeerID
+            if isMe {
+                profileManager.recordLocalResult(gameScore: player.score, won: won)
+            } else {
+                profileManager.recordOpponentResult(
+                    username: player.username,
+                    gameScore: player.score,
+                    won: won
+                )
+            }
         }
     }
     
@@ -396,6 +464,9 @@ class GameManager: ObservableObject {
                 if let challenge = challenges.first(where: { $0.objectName == objectName && $0.round == round }) {
                     currentChallenge = challenge
                     timeRemaining = roundDuration
+                    roundAnswers = [:]
+                    roundFirstFinder = nil
+                    roundEnded = false
                     if !multipeerService.isHost {
                         startTimer()
                     }
