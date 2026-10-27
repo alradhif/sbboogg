@@ -212,7 +212,7 @@ struct ProfileView: View {
             }
         }
         .navigationViewStyle(.stack)
-        .environment(\.layoutDirection, .leftToRight)
+        .environment(\.layoutDirection, .rightToLeft)
     }
 
     func completeSetup() {
@@ -640,58 +640,65 @@ struct AllPlayersLeaderboardView: View {
                 } else {
                     List {
                         ForEach(Array(allProfiles.enumerated()), id: \.element.id) { index, profile in
-                            HStack(alignment: .center, spacing: 12) {
-                                Text("#\(index + 1)")
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.black)
-                                    .frame(width: 36, alignment: .center)
-
-                                VStack(alignment: .center, spacing: 4) {
-                                    Text(profile.username)
-                                        .font(.headline)
-                                        .lineLimit(1)
-                                        .multilineTextAlignment(.center)
-                                    HStack(spacing: 4) {
-                                        Text("\(profile.totalGamesPlayed) لعبة")
-                                        Text("•")
-                                        Text("الأفضل: \(profile.bestScore)")
-                                    }
-                                    .font(.caption)
-                                    .multilineTextAlignment(.center)
-                                }
-                                .foregroundColor(.black)
-                                .frame(maxWidth: .infinity, alignment: .center)
-
-                                VStack(alignment: .center, spacing: 2) {
-                                    Text("\(profile.bestScore)")
-                                        .font(.title3)
-                                        .fontWeight(.semibold)
-                                    Text("نقطة")
-                                        .font(.caption)
-                                }
-                                .foregroundColor(.black)
-                                .frame(width: 48, alignment: .center)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.vertical, 8)
-                            .listRowBackground(index == 0 ? AppTheme.accentSoft.opacity(0.35) : AppTheme.surface)
+                            leaderboardRow(rank: index + 1, profile: profile, isFirst: index == 0)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
                         }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .center)
+            .frame(maxWidth: .infinity)
             .foregroundColor(.black)
-            .padding()
+            .padding(.horizontal)
         }
         .environment(\.colorScheme, .light)
-        .environment(\.layoutDirection, .leftToRight)
+        .environment(\.layoutDirection, .rightToLeft)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             allProfiles = profileManager.getAllProfiles()
         }
+    }
+
+    @ViewBuilder
+    private func leaderboardRow(rank: Int, profile: PlayerProfile, isFirst: Bool) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text("#\(rank)")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(AppTheme.textPrimary)
+                .frame(width: 40, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(profile.username)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("\(profile.totalGamesPlayed) شوط")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(profile.bestScore)")
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text("نقطة")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+            .frame(minWidth: 56, alignment: .trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(isFirst ? AppTheme.accentSoft.opacity(0.4) : AppTheme.surface)
+        )
     }
 }
 

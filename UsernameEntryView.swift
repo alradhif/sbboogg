@@ -22,6 +22,9 @@ struct UsernameEntryView: View {
     @State private var showJoinHint: Bool = false
     @State private var showInviteHint: Bool = false
     @State private var usernameFromProfile: Bool = false
+    @State private var selectedPlayMode: PlayMode = .online
+    @State private var showNearbyPicker: Bool = false
+    @State private var navigateToOnline: Bool = false
     
     private var profileAvatarName: String {
         PlayerAvatars.imageName(for: profileManager.currentProfile?.avatarImageName)
@@ -40,7 +43,7 @@ struct UsernameEntryView: View {
             }
             .opacity(0)
             .accessibilityHidden(true)
-            
+
             GeometryReader { geo in
                 Image("stig")
                     .resizable()
@@ -109,54 +112,13 @@ struct UsernameEntryView: View {
                             }
                         }
 
-                        VStack(spacing: 14) {
-                            Button(action: {
-                                showInviteHint = true
-                            }) {
-                                Text("اعزمهم على مجموعتك")
-                                    .font(.appHeadline)
-                                    .foregroundColor(AppTheme.accent)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(username.isEmpty ? Color.gray : AppTheme.accentSoft)
-                                    .cornerRadius(24)
-                            }
-                            .disabled(username.isEmpty)
-                            .padding(.horizontal, 32)
-
-                            Button(action: {
-                                showJoinHint = true
-                            }) {
-                                Text("اقلط بمجموعه")
-                                    .font(.appHeadline)
-                                    .foregroundColor(AppTheme.textOnAccent)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(username.isEmpty ? Color.gray : AppTheme.accent)
-                                    .cornerRadius(24)
-                            }
-                            .disabled(username.isEmpty)
-                            .padding(.horizontal, 32)
-
-                            NavigationLink {
-                                OnlineRoomView(
-                                    username: username.trimmingCharacters(in: .whitespaces),
-                                    avatarImageName: profileAvatarName
-                                )
-                            } label: {
-                                Label("العب أونلاين مع ربعك البعيدين", systemImage: "globe")
-                                    .font(.appHeadline)
-                                    .foregroundColor(AppTheme.accent)
-                                    .frame(maxWidth: .infinity)
-                                    .padding()
-                                    .background(AppTheme.surface)
-                                    .cornerRadius(24)
-                                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
-                            }
-                            .disabled(username.isEmpty)
-                            .padding(.horizontal, 32)
-                        }
-                        .padding(.top, 10)
+                        PlayModeCarouselView(
+                            selection: $selectedPlayMode,
+                            isInteractionEnabled: !username.isEmpty,
+                            onModeActivated: handleModeActivated
+                        )
+                        .padding(.top, 4)
+                        .opacity(username.isEmpty ? 0.45 : 1)
 
                         if isSearching {
                             ProgressView("Searching for games...")
@@ -233,8 +195,41 @@ struct UsernameEntryView: View {
             }
         }
         .navigationBarBackButtonHidden(true)
+        .fullScreenCover(isPresented: $navigateToOnline) {
+            OnlineRoomView(
+                username: username.trimmingCharacters(in: .whitespaces),
+                avatarImageName: profileAvatarName
+            )
+        }
+        .sheet(isPresented: $showNearbyPicker) {
+            NearbyPlayPickerView(
+                onHost: {
+                    showNearbyPicker = false
+                    showInviteHint = true
+                },
+                onJoin: {
+                    showNearbyPicker = false
+                    showJoinHint = true
+                },
+                onDismiss: { showNearbyPicker = false }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
     }
-    
+
+    private func handleModeActivated(_ mode: PlayMode) {
+        guard !username.isEmpty else { return }
+        switch mode {
+        case .nearby:
+            showNearbyPicker = true
+        case .online:
+            navigateToOnline = true
+        case .random:
+            break
+        }
+    }
+
     func startAsHost() {
         guard !username.isEmpty else { return }
         let profile = profileManager.getOrCreateLocalProfile(username: username.trimmingCharacters(in: .whitespaces))
@@ -410,6 +405,302 @@ struct InviteHintView: View {
                 .offset(y: -20)
             }
             .environment(\.layoutDirection, .rightToLeft)
+        }
+    }
+}
+
+// MARK: - قريب مني: اعزم أو اقلط
+
+struct NearbyPlayPickerView: View {
+    var onHost: () -> Void
+    var onJoin: () -> Void
+    var onDismiss: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("قريب مني")
+                .font(.appTitle(26))
+                .foregroundColor(AppTheme.accent)
+                .padding(.top, 8)
+
+            Text("اختاري كيف تبغى تلعبين مع اللي حولك")
+                .font(.appBody)
+                .foregroundColor(AppTheme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+
+            Button(action: onHost) {
+                Text("اعزمهم على مجموعتك")
+                    .font(.appHeadline)
+                    .foregroundColor(AppTheme.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AppTheme.accentSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+            }
+            .padding(.horizontal, 28)
+
+            Button(action: onJoin) {
+                Text("اقلط بمجموعة")
+                    .font(.appHeadline)
+                    .foregroundColor(AppTheme.textOnAccent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(AppTheme.accent)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+            }
+            .padding(.horizontal, 28)
+
+            Button("إلغاء", action: onDismiss)
+                .font(.appBody)
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.top, 4)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(AppTheme.background)
+    }
+}
+
+// MARK: - Play mode cards (Ludo-style carousel)
+
+enum PlayMode: String, CaseIterable, Identifiable {
+    case nearby
+    case online
+    case random
+
+    var id: String { rawValue }
+
+    var cardColor: Color {
+        switch self {
+        case .nearby: return Color(hex: "F5C518")
+        case .online: return Color(hex: "D32F2F")
+        case .random: return Color(hex: "43A047")
+        }
+    }
+
+    var iconSystemName: String {
+        switch self {
+        case .nearby: return "bluetooth"
+        case .online: return "globe"
+        case .random: return "person.2.fill"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .nearby: return "قريب مني"
+        case .online: return "أونلاين"
+        case .random: return "لعب عشوائي"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .nearby: return "بلوتوث مع اللي حولك"
+        case .online: return "العب مع ربعك البعيدين"
+        case .random: return "قريباً"
+        }
+    }
+
+    var isPlayable: Bool { self != .random }
+
+    /// ترتيب العرض: أخضر يسار — أحمر وسط — أصفر يمين (مثل التصميم).
+    static let carouselOrder: [PlayMode] = [.random, .online, .nearby]
+}
+
+struct PlayModeCarouselView: View {
+    @Binding var selection: PlayMode
+    var isInteractionEnabled: Bool = true
+    var onModeActivated: (PlayMode) -> Void = { _ in }
+
+    @State private var dragOffset: CGFloat = 0
+
+    private let modes = PlayMode.carouselOrder
+    private let cardWidth: CGFloat = 178
+    private let cardHeight: CGFloat = 212
+    /// تداخل بسيط مثل لودو — يبان الكرتان الجانبيان خلف الوسط.
+    private let cardSpacing: CGFloat = -34
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = max(geo.size.width, 320)
+
+            HStack(spacing: cardSpacing) {
+                ForEach(modes) { mode in
+                    let isSelected = selection == mode
+                    let distance = abs(modeIndex(mode) - modeIndex(selection))
+                    PlayModeCardView(mode: mode, isSelected: isSelected)
+                        .frame(width: cardWidth, height: cardHeight)
+                        .scaleEffect(isSelected ? 1.06 : 0.78)
+                        .opacity(isSelected ? 1 : 0.92)
+                        .rotation3DEffect(
+                            .degrees(cardYaw(for: mode)),
+                            axis: (x: 0, y: 1, z: 0),
+                            anchor: .center,
+                            perspective: 0.34
+                        )
+                        .offset(y: isSelected ? 0 : 10)
+                        .zIndex(isSelected ? 10 : Double(3 - distance))
+                        .onTapGesture {
+                            snapTo(mode, activate: true)
+                        }
+                }
+            }
+            .frame(height: cardHeight + 20, alignment: .center)
+            .offset(x: centeredOffset(containerWidth: width) + dragOffset)
+            .gesture(
+                DragGesture(minimumDistance: 8)
+                    .onChanged { dragOffset = $0.translation.width }
+                    .onEnded { value in
+                        let total = value.translation.width + value.predictedEndTranslation.width * 0.12
+                        var index = modeIndex(selection)
+                        if total < -35 {
+                            index = min(index + 1, modes.count - 1)
+                        } else if total > 35 {
+                            index = max(index - 1, 0)
+                        }
+                        snapTo(modes[index], activate: false)
+                    }
+            )
+            .frame(width: width, height: cardHeight + 28)
+        }
+        .frame(height: cardHeight + 28)
+        .padding(.horizontal, 4)
+        .environment(\.layoutDirection, .leftToRight)
+        .onAppear {
+            selection = .online
+            dragOffset = 0
+        }
+    }
+
+    private func modeIndex(_ mode: PlayMode) -> Int {
+        modes.firstIndex(of: mode) ?? 1
+    }
+
+    /// Cover flow: الوسط مستوي، الجانب يدور للخارج.
+    private func cardYaw(for mode: PlayMode) -> Double {
+        let idx = modeIndex(mode)
+        let center = modeIndex(selection)
+        if idx == center { return 0 }
+        if idx < center { return 38 }
+        return -38
+    }
+
+    private func centeredOffset(containerWidth: CGFloat) -> CGFloat {
+        let index = modeIndex(selection)
+        let selectedCenter = CGFloat(index) * (cardWidth + cardSpacing) + cardWidth / 2
+        return containerWidth / 2 - selectedCenter
+    }
+
+    private func snapTo(_ mode: PlayMode, activate: Bool) {
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+            selection = mode
+            dragOffset = 0
+        }
+        guard activate, isInteractionEnabled, mode.isPlayable else { return }
+        onModeActivated(mode)
+    }
+}
+
+/// شعار البلوتوث الكلاسيكي (نفس شكل أيقونة Material / الصورة المرجعية) — 24×24.
+private struct BluetoothLogoShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let sx = rect.width / 24
+        let sy = rect.height / 24
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * sx, y: rect.minY + y * sy)
+        }
+
+        var path = Path()
+        path.move(to: point(17.71, 7.71))
+        path.addLine(to: point(12, 2))
+        path.addLine(to: point(11, 2))
+        path.addLine(to: point(11, 9.59))
+        path.addLine(to: point(6.41, 5))
+        path.addLine(to: point(5, 6.41))
+        path.addLine(to: point(10.59, 12))
+        path.addLine(to: point(5, 17.59))
+        path.addLine(to: point(6.41, 19))
+        path.addLine(to: point(11, 14.41))
+        path.addLine(to: point(11, 22))
+        path.addLine(to: point(12, 22))
+        path.addLine(to: point(17.71, 16.29))
+        path.addLine(to: point(13.13, 11.7))
+        path.addLine(to: point(17.71, 7.11))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct PlayModeCardView: View {
+    let mode: PlayMode
+    let isSelected: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(mode.cardColor)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white, lineWidth: 6)
+                )
+                .shadow(color: .black.opacity(isSelected ? 0.2 : 0.1), radius: isSelected ? 12 : 6, y: 5)
+
+            VStack(spacing: 0) {
+                Spacer(minLength: 8)
+                modeIcon
+                    .padding(.bottom, 8)
+                Spacer()
+                VStack(spacing: 4) {
+                    Text(mode.title)
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundStyle(AppTheme.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Text(mode.subtitle)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(AppTheme.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 8)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .padding(10)
+            }
+
+            if !mode.isPlayable {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.black.opacity(0.08))
+                Text("قريباً")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.35))
+                    .clipShape(Capsule())
+                    .offset(y: -36)
+            }
+        }
+        .opacity(mode.isPlayable ? 1 : 0.88)
+    }
+
+    @ViewBuilder
+    private var modeIcon: some View {
+        if mode == .nearby {
+            BluetoothLogoShape()
+                .fill(Color.white)
+                .frame(width: 48, height: 48)
+        } else {
+            Image(systemName: mode.iconSystemName)
+                .font(.system(size: 44, weight: .semibold))
+                .foregroundStyle(.white)
+                .symbolRenderingMode(.hierarchical)
         }
     }
 }
