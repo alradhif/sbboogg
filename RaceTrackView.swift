@@ -140,7 +140,7 @@ struct RaceTrackView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 gains[username] = gain
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                 withAnimation(.easeOut(duration: 0.25)) {
                     _ = gains.removeValue(forKey: username)
                 }

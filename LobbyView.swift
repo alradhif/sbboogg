@@ -455,7 +455,7 @@ print("   Current players in gameManager: \(gameManager.players.count)")
             !connectedPeerDisplayNames.contains(player.peerID) && player.peerID != myPeerDisplayName
         }
         for player in disconnected {
-            gameManager.handleFirstPlayerLeftDuringGame(player)
+            gameManager.handleOpponentLeftDuringGame(player)
         }
         let beforeRemove = gameManager.players.count
         gameManager.players.removeAll { player in

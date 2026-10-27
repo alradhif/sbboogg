@@ -42,10 +42,12 @@ struct OnlineRoomView: View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 22) {
-                    header
+            VStack(spacing: 0) {
+                header
+                    .padding(.horizontal, 28)
+                    .padding(.top, 24)
 
+                Group {
                     switch auth.state {
                     case .loading:
                         VStack(spacing: 12) {
@@ -54,29 +56,38 @@ struct OnlineRoomView: View {
                                 .font(.appBody)
                                 .foregroundColor(AppTheme.textSecondary)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     case .signedOut:
-                        SignInOptionsView()
+                        ScrollView {
+                            SignInOptionsView()
+                                .padding(.horizontal, 28)
+                                .padding(.vertical, 16)
+                        }
                     case .guest, .facebook:
                         if room.roomID == nil {
                             createOrJoin
+                                .padding(.horizontal, 28)
                         } else {
-                            lobby
+                            ScrollView {
+                                lobby
+                                    .padding(.horizontal, 28)
+                                    .padding(.vertical, 16)
+                            }
                         }
                     }
-
-                    if let message = room.errorMessage {
-                        Text(message)
-                            .font(.appCaption)
-                            .foregroundColor(AppTheme.error)
-                            .multilineTextAlignment(.center)
-                    }
                 }
-                .padding(.horizontal, 28)
-                .padding(.vertical, 24)
+
+                if let message = room.errorMessage {
+                    Text(message)
+                        .font(.appCaption)
+                        .foregroundColor(AppTheme.error)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                        .padding(.bottom, 12)
+                }
             }
         }
+        .scrollDismissesKeyboard(.interactively)
         .navigationBarBackButtonHidden(true)
         .onAppear {
             room.gameManager = gameManager
@@ -147,7 +158,7 @@ struct OnlineRoomView: View {
             Image("camel")
                 .resizable()
                 .scaledToFit()
-                .frame(height: 160)
+                .frame(height: 120)
 
             primaryButton(
                 "سوّ غرفة وادعِ ربعك",
@@ -168,20 +179,18 @@ struct OnlineRoomView: View {
                 .font(.appBody)
                 .foregroundColor(AppTheme.textSecondary)
 
-            TextField("", text: $codeInput, prompt: Text("الكود").foregroundStyle(AppTheme.textSecondary))
+            TextField("", text: codeBinding, prompt: Text("الكود").foregroundStyle(AppTheme.textSecondary))
                 .font(.system(size: 26, weight: .heavy, design: .monospaced))
                 .foregroundStyle(AppTheme.textPrimary)
                 .tint(AppTheme.accent)
                 .multilineTextAlignment(.center)
                 .textInputAutocapitalization(.characters)
                 .disableAutocorrection(true)
+                .keyboardType(.asciiCapable)
                 .padding(.vertical, 12)
                 .padding(.horizontal, 12)
                 .background(AppTheme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 18))
-                .onChange(of: codeInput) { value in
-                    codeInput = String(value.uppercased().prefix(5))
-                }
 
             primaryButton(
                 "ادخل",
@@ -200,7 +209,19 @@ struct OnlineRoomView: View {
             .disabled(codeInput.count < 5 || room.isWorking || roomTapLocked)
             .opacity(codeInput.count < 5 ? 0.5 : 1)
         }
-        .disabled(auth.isWorking || auth.state == .loading || roomTapLocked)
+        .disabled(auth.isWorking || auth.state == .loading)
+    }
+
+    private var codeBinding: Binding<String> {
+        Binding(
+            get: { codeInput },
+            set: { newValue in
+                let cleaned = String(newValue.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(5))
+                if cleaned != codeInput {
+                    codeInput = cleaned
+                }
+            }
+        )
     }
 
     private var lobby: some View {

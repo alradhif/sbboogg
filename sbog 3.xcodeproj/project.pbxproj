@@ -37,16 +37,16 @@
 		F0B1E2C40A1B2C3D4E5F6789 /* SplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0B1E2C30A1B2C3D4E5F6789 /* SplashView.swift */; };
 		F0C1D2E3A4B5C6D7E8F9A0B1 /* MainPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */; };
 		F0C1D2E3A4B5C6D7E8F9A0B3 /* MainView2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */; };
-		G4M3EX1TBTN5W1FT5F1L3R01 /* GameExitConfirmButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */; };
 		FB0000000000000000000A01 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000B01 /* AuthService.swift */; };
 		FB0000000000000000000A02 /* FacebookSignInViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000B02 /* FacebookSignInViews.swift */; };
+		FB0000000000000000000A03 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000000000000000000C02 /* Supabase */; };
 		FB0000000000000000000A04 /* OnlineRoom.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000B04 /* OnlineRoom.swift */; };
 		FB0000000000000000000A05 /* OnlineRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000B05 /* OnlineRoomView.swift */; };
-		FB0000000000000000000A03 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000000000000000000C02 /* Supabase */; };
-		R4C3TR4CKV13W1N50URC3S01 /* RaceTrackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4C3TR4CKV13W1N50URC3S02 /* RaceTrackView.swift */; };
+		G4M3EX1TBTN5W1FT5F1L3R01 /* GameExitConfirmButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */; };
 		L1V3D3T3CT0R5W1FT1N50URC01 /* LiveCameraObjectDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */; };
 		O4P3N41C0NF1G2A3B4C5D6E7 /* OpenAIConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */; };
 		O4P3N41K3Y5T0R4G3SW1FT01 /* OpenAIKeyStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = O4P3N41K3Y5T0R4G3SW1FT02 /* OpenAIKeyStorage.swift */; };
+		R4C3TR4CKV13W1N50URC3S01 /* RaceTrackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4C3TR4CKV13W1N50URC3S02 /* RaceTrackView.swift */; };
 		S3CR3T5PL1ST1NRES0URC3S01 /* Secrets.plist in Resources */ = {isa = PBXBuildFile; fileRef = S3CR3T5PL1ST1NRES0URC3S02 /* Secrets.plist */; };
 		T1M3RV13W5W1FT5F1L3R3F01 /* TimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */; };
 /* End PBXBuildFile section */
@@ -94,14 +94,14 @@
 		F0C1D2E3A4B5C6D7E8F9A0B0 /* MainPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainPageView.swift; sourceTree = "<group>"; };
 		F0C1D2E3A4B5C6D7E8F9A0B2 /* MainView2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView2.swift; sourceTree = "<group>"; };
 		F7A8B9C0D1E2F3A4B5C6D7E8 /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
-		G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameExitConfirmButton.swift; sourceTree = "<group>"; };
-		L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraObjectDetector.swift; sourceTree = "<group>"; };
-		O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIConfiguration.swift; sourceTree = "<group>"; };
-		O4P3N41K3Y5T0R4G3SW1FT02 /* OpenAIKeyStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIKeyStorage.swift; sourceTree = "<group>"; };
 		FB0000000000000000000B01 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		FB0000000000000000000B02 /* FacebookSignInViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacebookSignInViews.swift; sourceTree = "<group>"; };
 		FB0000000000000000000B04 /* OnlineRoom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineRoom.swift; sourceTree = "<group>"; };
 		FB0000000000000000000B05 /* OnlineRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineRoomView.swift; sourceTree = "<group>"; };
+		G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameExitConfirmButton.swift; sourceTree = "<group>"; };
+		L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraObjectDetector.swift; sourceTree = "<group>"; };
+		O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIConfiguration.swift; sourceTree = "<group>"; };
+		O4P3N41K3Y5T0R4G3SW1FT02 /* OpenAIKeyStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIKeyStorage.swift; sourceTree = "<group>"; };
 		R4C3TR4CKV13W1N50URC3S02 /* RaceTrackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceTrackView.swift; sourceTree = "<group>"; };
 		S3CR3T5PL1ST1NRES0URC3S02 /* Secrets.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Secrets.plist; sourceTree = "<group>"; };
 		T1M3RV13W5W1FT5F1L3R3F02 /* TimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerView.swift; sourceTree = "<group>"; };
@@ -272,12 +272,12 @@
 				Base,
 			);
 			mainGroup = 726CA228B9104002922C8A15;
-			productRefGroup = 5BF00CA2EB224D50A4E0B778 /* Products */;
-			projectDirPath = "";
-			projectRoot = "";
 			packageReferences = (
 				FB0000000000000000000C01 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 			);
+			productRefGroup = 5BF00CA2EB224D50A4E0B778 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				C9D8E7F6A5B4C3D2E1F0A9B8 /* sbog */,
 				D08832CD2F0DDD6900CD7A80 /* sbogTests */,

@@ -19,6 +19,8 @@ class GameManager: ObservableObject {
     @Published var leaderboard: [Player] = []
     /// رسالة للاعب الثاني إذا طلع الأول من القيم قبل النهاية.
     @Published var opponentLeftNotice: String?
+    /// من طلع من القيم يُسجَّل خاسر حتى لو نقاطه أعلى.
+    private var forfeitedByQuitPeerID: String?
     
     private var timer: Timer?
     private let roundDuration: Int = 10
@@ -44,6 +46,7 @@ class GameManager: ObservableObject {
 
     weak var onlineRoom: OnlineRoom?
     var isOnline: Bool { onlineRoom != nil }
+    var onlinePlayersSignature: String = ""
 
     var myPlayerKey: String {
         if let id = onlineRoom?.myID { return id.uuidString }
@@ -110,6 +113,8 @@ class GameManager: ObservableObject {
         isGameActive = false
         gameEnded = false
         opponentLeftNotice = nil
+        forfeitedByQuitPeerID = nil
+        onlinePlayersSignature = ""
         currentRound = 0
         currentChallenge = nil
         timeRemaining = roundDuration
@@ -121,28 +126,28 @@ class GameManager: ObservableObject {
         objectWillChange.send()
     }
 
-    /// اللاعب الأول (صاحب المجموعة) قطع الاتصال أثناء القيم — للاعب الثاني في ثنائي.
-    func handleFirstPlayerLeftDuringGame(_ leftPlayer: Player) {
-        guard !isOnline, isGameActive, !gameEnded else { return }
-        guard players.first?.peerID == leftPlayer.peerID else { return }
-        guard players.count >= 2 else { return }
-
-        let myKey = multipeerService.myPeerID.displayName
-        guard players[1].peerID == myKey else { return }
+    /// خصم قطع الاتصال أو طلع من القيم — اللي يبقى يفوز واللي طلع يخسر.
+    func handleOpponentLeftDuringGame(_ leftPlayer: Player) {
+        guard isGameActive, !gameEnded else { return }
+        let myKey = myPlayerKey
         guard leftPlayer.peerID != myKey else { return }
+        guard players.contains(where: { $0.peerID == leftPlayer.peerID }) else { return }
 
-        let myScore = players[1].score
-        applyOpponentLeftNotice(myScore: myScore, firstPlayerScore: leftPlayer.score)
+        let myScore = players.first(where: { $0.peerID == myKey })?.score ?? 0
+        finishGameBecauseOpponentQuit(leaverPeerID: leftPlayer.peerID, myScore: myScore, leaverScore: leftPlayer.score)
     }
 
-    func applyOpponentLeftNotice(myScore: Int, firstPlayerScore: Int) {
+    func finishGameBecauseOpponentQuit(leaverPeerID: String, myScore: Int, leaverScore: Int) {
         guard isGameActive, !gameEnded else { return }
-        if myScore > firstPlayerScore {
+        guard leaverPeerID != myPlayerKey else { return }
+
+        forfeitedByQuitPeerID = leaverPeerID
+        if myScore > leaverScore {
             opponentLeftNotice = "صاحبك طلع وانت فزت لأن نقاطك أكثر"
-        } else if firstPlayerScore > myScore {
-            opponentLeftNotice = "صاحبك طلع وبرضو فاز الأول بس بنسبة قليلة"
+        } else if myScore < leaverScore {
+            opponentLeftNotice = "صاحبك طلع وانت فزت — اللي يطلع من القيم يخسر"
         } else {
-            opponentLeftNotice = "صاحبك طلع والنتيجة متعادلة"
+            opponentLeftNotice = "صاحبك طلع وانت فزت"
         }
         endGameAfterOpponentLeft()
     }
@@ -151,13 +156,20 @@ class GameManager: ObservableObject {
         timer?.invalidate()
         roundEnded = true
         isGameActive = false
-        leaderboard = players.sorted { $0.score > $1.score }
+        if let leaver = forfeitedByQuitPeerID {
+            leaderboard = players.sorted { lhs, rhs in
+                if lhs.peerID == leaver { return false }
+                if rhs.peerID == leaver { return true }
+                return lhs.score > rhs.score
+            }
+        } else {
+            leaderboard = players.sorted { $0.score > $1.score }
+        }
         saveScoresToProfiles()
         if isOnline {
             let key = myPlayerKey
             if let me = leaderboard.first(where: { $0.peerID == key }) {
-                let won = leaderboard.first?.peerID == key
-                recordOnlineResult(score: me.score, won: won)
+                recordOnlineResult(score: me.score, won: true)
             }
         }
         gameEnded = true
@@ -177,6 +189,7 @@ class GameManager: ObservableObject {
         
         isGameActive = true
         opponentLeftNotice = nil
+        forfeitedByQuitPeerID = nil
         currentRound = 0
         resetScores()
         
@@ -292,7 +305,7 @@ class GameManager: ObservableObject {
         timer?.invalidate()
         
         // Brief pause so late answers can arrive, then next round
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()
@@ -361,12 +374,30 @@ class GameManager: ObservableObject {
     
     func saveScoresToProfiles() {
         guard let profileManager = profileManager else { return }
-        
-        // Determine winner (highest score)
-        let winner = leaderboard.first
-        
+
         let myPeerID = multipeerService.myPeerID.displayName
         let myUsername = multipeerService.username
+        let myKey = isOnline ? myPlayerKey : myPeerID
+
+        if let leaverPeerID = forfeitedByQuitPeerID {
+            for player in players {
+                let isMe = player.peerID == myKey
+                    || (player.peerID.isEmpty && player.username == myUsername)
+                if isMe {
+                    profileManager.recordLocalResult(gameScore: player.score, won: true)
+                } else {
+                    profileManager.recordOpponentResult(
+                        username: player.username,
+                        gameScore: player.score,
+                        won: false
+                    )
+                }
+            }
+            return
+        }
+
+        // Determine winner (highest score)
+        let winner = leaderboard.first
 
         for player in players {
             let won = winner?.username == player.username

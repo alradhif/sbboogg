@@ -109,6 +109,9 @@ final class OnlineRoom: ObservableObject {
     private var finished = false
     /// ترتيب اللاعبين النشطين من آخر تحديث (للكشف عن خروج الأول أثناء اللعب).
     private var lastActiveSnapshot: [(id: UUID, score: Int)] = []
+    private var refreshDebounceTask: Task<Void, Never>?
+    private var isRefreshing = false
+    private var refreshAgainWhenDone = false
 
     nonisolated var myID: UUID? { supabase.auth.currentUser?.id }
     var activePlayers: [OnlinePlayerRow] { players.filter { $0.leftAt == nil } }
@@ -124,9 +127,10 @@ final class OnlineRoom: ObservableObject {
     func create(username: String, avatarImageName: String) async {
         guard roomID == nil else { return }
         await run {
-            try await self.pushProfile(username: username, avatarImageName: avatarImageName)
-            let rows: [CreatedRoom] = try await supabase.rpc("create_room").execute().value
-            guard let created = rows.first else { throw URLError(.badServerResponse) }
+            async let profileSync: Void = try self.pushProfile(username: username, avatarImageName: avatarImageName)
+            async let createdRows: [CreatedRoom] = supabase.rpc("create_room").execute().value
+            _ = try await profileSync
+            guard let created = try await createdRows.first else { throw URLError(.badServerResponse) }
             self.code = created.code
             self.isHost = true
             try await self.enter(created.roomID)
@@ -137,9 +141,10 @@ final class OnlineRoom: ObservableObject {
         let cleaned = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard cleaned.count >= 5, roomID == nil else { return }
         await run {
-            try await self.pushProfile(username: username, avatarImageName: avatarImageName)
-            let roomID: UUID = try await supabase.rpc("join_room", params: ["p_code": cleaned]).execute().value
-            try await self.enter(roomID)
+            async let profileSync: Void = try self.pushProfile(username: username, avatarImageName: avatarImageName)
+            async let joinedRoomID: UUID = supabase.rpc("join_room", params: ["p_code": cleaned]).execute().value
+            _ = try await profileSync
+            try await self.enter(try await joinedRoomID)
         }
     }
 
@@ -193,7 +198,7 @@ final class OnlineRoom: ObservableObject {
                 "submit_device_find",
                 params: Params(p_room: roomID.uuidString, p_round: round, p_label: label, p_confidence: confidence)
             ).execute().value
-            try? await refresh()
+            scheduleRefresh()
             return points
         } catch {
             return nil
@@ -212,7 +217,7 @@ final class OnlineRoom: ObservableObject {
         Task { try? await self.loadChallengesIfNeeded() }
     }
 
-    private func noteFirstPlayerDepartureIfNeeded(
+    private func noteOpponentDepartureIfNeeded(
         activeBefore: [(id: UUID, score: Int)],
         activeNow: [OnlinePlayerRow]
     ) {
@@ -220,16 +225,19 @@ final class OnlineRoom: ObservableObject {
               let gm = gameManager,
               gm.isGameActive,
               !gm.gameEnded,
-              let myID,
-              activeBefore.count >= 2 else { return }
+              let myID else { return }
 
         let activeIDs = Set(activeNow.map(\.playerID))
-        let firstLeft = !activeIDs.contains(activeBefore[0].id)
-        guard firstLeft, activeBefore[1].id == myID else { return }
+        guard activeIDs.contains(myID) else { return }
 
-        gm.applyOpponentLeftNotice(
-            myScore: activeBefore[1].score,
-            firstPlayerScore: activeBefore[0].score
+        let departed = activeBefore.filter { !activeIDs.contains($0.id) && $0.id != myID }
+        guard let gone = departed.first,
+              let mySnap = activeBefore.first(where: { $0.id == myID }) else { return }
+
+        gm.finishGameBecauseOpponentQuit(
+            leaverPeerID: gone.id.uuidString,
+            myScore: mySnap.score,
+            leaverScore: gone.score
         )
     }
 
@@ -253,13 +261,49 @@ final class OnlineRoom: ObservableObject {
         listeners = streams.map { stream in
             Task { [weak self] in
                 for await _ in stream {
-                    try? await self?.refresh()
+                    self?.scheduleRefresh()
                 }
             }
         }
     }
 
+    /// يجمّع تحديثات Realtime المتتالية بدل طلب شبكة لكل حدث.
+    private func scheduleRefresh() {
+        if isRefreshing {
+            refreshAgainWhenDone = true
+            return
+        }
+        refreshDebounceTask?.cancel()
+        refreshDebounceTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 220_000_000)
+            guard !Task.isCancelled, let self else { return }
+            await self.performRefresh()
+        }
+    }
+
+    private func performRefresh() async {
+        guard !isRefreshing else {
+            refreshAgainWhenDone = true
+            return
+        }
+        isRefreshing = true
+        defer {
+            isRefreshing = false
+            if refreshAgainWhenDone {
+                refreshAgainWhenDone = false
+                scheduleRefresh()
+            }
+        }
+        do {
+            try await refresh()
+        } catch {
+            errorMessage = Self.message(for: error)
+        }
+    }
+
     private func stopListening() async {
+        refreshDebounceTask?.cancel()
+        refreshDebounceTask = nil
         listeners.forEach { $0.cancel() }
         listeners = []
         ticker?.invalidate()
@@ -289,7 +333,7 @@ final class OnlineRoom: ObservableObject {
         isHost = room.hostID == myID
         status = room.status
         players = rows
-        noteFirstPlayerDepartureIfNeeded(activeBefore: lastActiveSnapshot, activeNow: rows.filter { $0.leftAt == nil })
+        noteOpponentDepartureIfNeeded(activeBefore: lastActiveSnapshot, activeNow: rows.filter { $0.leftAt == nil })
         lastActiveSnapshot = rows.filter { $0.leftAt == nil }.map { ($0.playerID, $0.score) }
         gameManager?.applyOnlinePlayers(activePlayers)
 
@@ -319,7 +363,7 @@ final class OnlineRoom: ObservableObject {
         gameManager?.showOnlineRound(number: round.roundNumber, objectName: name, secondsLeft: secondsLeft())
 
         ticker?.invalidate()
-        ticker = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        ticker = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
     }
@@ -334,14 +378,14 @@ final class OnlineRoom: ObservableObject {
         gameManager?.timeRemaining = left
         if left == 0 {
             ticker?.invalidate()
-            advance(after: 1.5)
+            advance(after: 0.65)
         }
     }
 
     /// Like the local game, the round moves on soon after the first find.
     private func advanceIfSomeoneScored() {
         let someoneScored = activePlayers.contains { $0.score > (roundStartScores[$0.playerID] ?? 0) }
-        if someoneScored { advance(after: 1.2) }
+        if someoneScored { advance(after: 0.55) }
     }
 
     /// Only the host opens the next round, once per round. After the last round the
@@ -392,6 +436,10 @@ final class OnlineRoom: ObservableObject {
 extension GameManager {
     /// Keeps the same Player objects so the race strip animates score changes.
     func applyOnlinePlayers(_ rows: [OnlinePlayerRow]) {
+        let signature = rows.map { "\($0.playerID.uuidString):\($0.score):\($0.profile.username)" }.joined(separator: "|")
+        guard signature != onlinePlayersSignature else { return }
+        onlinePlayersSignature = signature
+
         let keys = Set(rows.map { $0.playerID.uuidString })
         players.removeAll { !keys.contains($0.peerID) }
         for row in rows {
