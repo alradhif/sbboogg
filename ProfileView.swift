@@ -166,53 +166,8 @@ struct ProfileView: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            profileSettingsSheet
+            ProfileSettingsSheetView(profileManager: profileManager)
         }
-    }
-
-    private var profileSettingsSheet: some View {
-        NavigationView {
-            ZStack {
-                Color(hex: "FFCB45")
-                    .ignoresSafeArea()
-
-                VStack(spacing: 24) {
-                    NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) {
-                        Text("التصنيف")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundColor(AppTheme.textOnAccent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(AppTheme.accent)
-                            .clipShape(Capsule())
-                    }
-
-                    musicSection
-
-                    OnlineAccountSection()
-
-                    Spacer()
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-            }
-            .navigationTitle("الإعدادات")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("تم") {
-                        showSettings = false
-                    }
-                    .foregroundColor(AppTheme.accent)
-                    .fontWeight(.semibold)
-                }
-            }
-        }
-        .navigationViewStyle(.stack)
-        .environment(\.layoutDirection, .rightToLeft)
     }
 
     func completeSetup() {
@@ -599,6 +554,97 @@ private struct AvatarLevelCard: View {
 
 #Preview {
     ProfileView(profileManager: ProfileManager())
+}
+
+// MARK: - Settings (shared from profile & username entry)
+
+struct ProfileSettingsSheetView: View {
+    @ObservedObject var profileManager: ProfileManager
+    @ObservedObject private var audioManager = BackgroundMusicManager.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ZStack {
+                AppTheme.background
+                    .ignoresSafeArea()
+
+                VStack(spacing: 24) {
+                    NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) {
+                        Text("التصنيف")
+                            .font(.subheadline)
+                            .fontWeight(.bold)
+                            .foregroundColor(AppTheme.textOnAccent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(AppTheme.accent)
+                            .clipShape(Capsule())
+                    }
+
+                    settingsMusicSection
+
+                    OnlineAccountSection()
+
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+            }
+            .navigationTitle("الإعدادات")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(AppTheme.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("تم") {
+                        dismiss()
+                    }
+                    .foregroundColor(AppTheme.accent)
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .environment(\.layoutDirection, .rightToLeft)
+    }
+
+    private var settingsMusicSection: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: audioManager.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.subheadline)
+                    .foregroundColor(.black)
+                Text("موسيقى الخلفية")
+                    .font(.subheadline)
+                    .foregroundColor(.black)
+                Spacer()
+                Toggle(
+                    "",
+                    isOn: Binding(
+                        get: { !audioManager.isMuted },
+                        set: { audioManager.setMuted(!$0) }
+                    )
+                )
+                .labelsHidden()
+                .scaleEffect(0.85)
+            }
+
+            if !audioManager.isMuted {
+                Slider(
+                    value: Binding(
+                        get: { Double(audioManager.volume) },
+                        set: { audioManager.setVolume(Float($0)) }
+                    ),
+                    in: 0...1
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.65))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
 }
 
 // MARK: - All Players Leaderboard View

@@ -42,10 +42,10 @@ struct OnlineRoomView: View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
                 header
                     .padding(.horizontal, 28)
-                    .padding(.top, 24)
+                    .padding(.top, 4)
 
                 Group {
                     switch auth.state {
@@ -63,19 +63,27 @@ struct OnlineRoomView: View {
                                 .padding(.horizontal, 28)
                                 .padding(.vertical, 16)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     case .guest, .facebook:
                         if room.roomID == nil {
-                            createOrJoin
-                                .padding(.horizontal, 28)
+                            ScrollView(showsIndicators: false) {
+                                createOrJoin
+                                    .padding(.horizontal, 28)
+                                    .padding(.top, 10)
+                                    .padding(.bottom, 32)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         } else {
                             ScrollView {
                                 lobby
                                     .padding(.horizontal, 28)
                                     .padding(.vertical, 16)
                             }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
                 if let message = room.errorMessage {
                     Text(message)
@@ -154,11 +162,11 @@ struct OnlineRoomView: View {
     }
 
     private var createOrJoin: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 14) {
             Image("camel")
                 .resizable()
                 .scaledToFit()
-                .frame(height: 120)
+                .frame(height: 100)
 
             primaryButton(
                 "سوّ غرفة وادعِ ربعك",

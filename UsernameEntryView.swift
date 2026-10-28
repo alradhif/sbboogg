@@ -19,6 +19,9 @@ struct UsernameEntryView: View {
     @State private var availableHosts: [MCPeerID] = []
     @State private var isSearching: Bool = false
     @State private var showProfile: Bool = false
+    @State private var showSettings: Bool = false
+    @State private var showLeaderboard: Bool = false
+    @State private var showInvitations: Bool = false
     @State private var showJoinHint: Bool = false
     @State private var showInviteHint: Bool = false
     @State private var usernameFromProfile: Bool = false
@@ -55,35 +58,10 @@ struct UsernameEntryView: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
-                        HStack {
-                            Spacer()
-                            Button(action: {
-                                showProfile = true
-                            }) {
-                                if usernameFromProfile {
-                                    Image(profileAvatarName)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 44, height: 44)
-                                        .background(Color.white)
-                                        .clipShape(Circle())
-                                        .overlay(Circle().stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
-                                } else {
-                                    Circle()
-                                        .fill(Color.white)
-                                        .frame(width: 44, height: 44)
-                                        .overlay(Circle().stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
-                                }
-                            }
-                            .padding(.trailing, 20)
-                            .padding(.top, 10)
-                        }
-
                         Image("camel")
                             .resizable()
                             .scaledToFit()
                             .frame(height: min(geo.size.height * 0.25, 240))
-                            .padding(.horizontal, usernameFromProfile ? 80 : 0)
 
                         VStack(spacing: 10) {
                             if usernameFromProfile {
@@ -128,6 +106,8 @@ struct UsernameEntryView: View {
                         Spacer(minLength: 12)
                     }
                     .padding(.horizontal, 16)
+                    .padding(.top, 28)
+                    .padding(.bottom, 8)
                     .frame(minHeight: geo.size.height)
                 }
             }
@@ -160,6 +140,19 @@ struct UsernameEntryView: View {
                 .transition(.opacity)
             }
         }
+        .navigationBarHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            UsernameEntryBottomBar(
+                profileAvatarName: profileAvatarName,
+                showsProfileAvatar: usernameFromProfile,
+                onProfile: { showProfile = true },
+                onSettings: { showSettings = true },
+                onLeaderboard: { showLeaderboard = true },
+                onInvitations: { showInvitations = true }
+            )
+        }
+        .environment(\.layoutDirection, .rightToLeft)
         .sheet(isPresented: $showProfile) {
             ProfileView(
                 profileManager: profileManager,
@@ -173,6 +166,30 @@ struct UsernameEntryView: View {
                 }
             )
             .environment(\.layoutDirection, .leftToRight)
+        }
+        .sheet(isPresented: $showSettings) {
+            ProfileSettingsSheetView(profileManager: profileManager)
+        }
+        .sheet(isPresented: $showLeaderboard) {
+            NavigationView {
+                AllPlayersLeaderboardView(profileManager: profileManager)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("تم") {
+                                showLeaderboard = false
+                            }
+                            .foregroundStyle(AppTheme.accent)
+                            .fontWeight(.semibold)
+                        }
+                    }
+            }
+            .navigationViewStyle(.stack)
+            .environment(\.layoutDirection, .rightToLeft)
+        }
+        .sheet(isPresented: $showInvitations) {
+            InvitationsView(multipeerService: multipeerService) {
+                showInvitations = false
+            }
         }
         .onAppear {
             profileManager.setModelContext(modelContext)
@@ -194,7 +211,6 @@ struct UsernameEntryView: View {
                 }
             }
         }
-        .navigationBarBackButtonHidden(true)
         .fullScreenCover(isPresented: $navigateToOnline) {
             OnlineRoomView(
                 username: username.trimmingCharacters(in: .whitespaces),
@@ -417,49 +433,134 @@ struct NearbyPlayPickerView: View {
     var onDismiss: () -> Void
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("قريب مني")
-                .font(.appTitle(26))
-                .foregroundColor(AppTheme.accent)
-                .padding(.top, 8)
+        VStack(spacing: 0) {
+            Spacer(minLength: 32)
 
-            Text("اختاري كيف تبغى تلعبين مع اللي حولك")
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-
-            Button(action: onHost) {
-                Text("اعزمهم على مجموعتك")
-                    .font(.appHeadline)
+            VStack(spacing: 18) {
+                Text("قريب مني")
+                    .font(.appTitle(26))
                     .foregroundColor(AppTheme.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.accentSoft)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-            }
-            .padding(.horizontal, 28)
 
-            Button(action: onJoin) {
-                Text("اقلط بمجموعة")
-                    .font(.appHeadline)
-                    .foregroundColor(AppTheme.textOnAccent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-            }
-            .padding(.horizontal, 28)
+                Text("اختاري كيف تبغى تلعبين مع اللي حولك")
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 6)
 
-            Button("إلغاء", action: onDismiss)
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
+                VStack(spacing: 14) {
+                    Button(action: onHost) {
+                        Text("اعزمهم على مجموعتك")
+                            .font(.appHeadline)
+                            .foregroundColor(AppTheme.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(AppTheme.accentSoft)
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                    }
+
+                    Button(action: onJoin) {
+                        Text("اقلط بمجموعة")
+                            .font(.appHeadline)
+                            .foregroundColor(AppTheme.textOnAccent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(AppTheme.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
+                    }
+                }
                 .padding(.top, 4)
 
-            Spacer(minLength: 0)
+                Button("إلغاء", action: onDismiss)
+                    .font(.appBody)
+                    .foregroundColor(AppTheme.textSecondary)
+                    .padding(.top, 8)
+            }
+            .padding(.horizontal, 28)
+
+            Spacer(minLength: 36)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(AppTheme.background)
+    }
+}
+
+// MARK: - Bottom toolbar
+
+private struct UsernameEntryBottomBar: View {
+    let profileAvatarName: String
+    let showsProfileAvatar: Bool
+    var onProfile: () -> Void
+    var onSettings: () -> Void
+    var onLeaderboard: () -> Void
+    var onInvitations: () -> Void
+
+    var body: some View {
+        HStack(spacing: 0) {
+            bottomItem(title: "البروفايل", action: onProfile) {
+                if showsProfileAvatar {
+                    Image(profileAvatarName)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 26, height: 26)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(AppTheme.accent.opacity(0.35), lineWidth: 1.5))
+                } else {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 22, weight: .medium))
+                }
+            }
+
+            bottomItem(title: "الإعدادات", systemImage: "gearshape.fill", action: onSettings)
+            bottomItem(title: "التصنيف", systemImage: "trophy.fill", action: onLeaderboard)
+            bottomItem(title: "دعوات", systemImage: "envelope.fill", action: onInvitations)
+        }
+        .padding(.horizontal, 4)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
+        .background(
+            AppTheme.surface
+                .shadow(color: .black.opacity(0.08), radius: 12, y: -4)
+                .ignoresSafeArea(edges: .bottom)
+        )
+        .overlay(alignment: .top) {
+            Divider()
+                .background(AppTheme.textSecondary.opacity(0.2))
+        }
+    }
+
+    private func bottomItem(
+        title: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        bottomItem(title: title, action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+        }
+    }
+
+    private func bottomItem(
+        title: String,
+        action: @escaping () -> Void,
+        @ViewBuilder icon: () -> some View
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                icon()
+                    .foregroundStyle(AppTheme.accent)
+                    .frame(height: 28)
+
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -522,6 +623,8 @@ struct PlayModeCarouselView: View {
     private let cardHeight: CGFloat = 212
     /// تداخل بسيط مثل لودو — يبان الكرتان الجانبيان خلف الوسط.
     private let cardSpacing: CGFloat = -34
+    /// إزاحة أفقية للكروت (موجب = يمين).
+    private let carouselBiasX: CGFloat = 20
 
     var body: some View {
         GeometryReader { geo in
@@ -549,7 +652,7 @@ struct PlayModeCarouselView: View {
                 }
             }
             .frame(height: cardHeight + 20, alignment: .center)
-            .offset(x: centeredOffset(containerWidth: width) + dragOffset)
+            .offset(x: centeredOffset(containerWidth: width) + carouselBiasX + dragOffset)
             .gesture(
                 DragGesture(minimumDistance: 8)
                     .onChanged { dragOffset = $0.translation.width }
@@ -653,25 +756,29 @@ private struct PlayModeCardView: View {
                 modeIcon
                     .padding(.bottom, 8)
                 Spacer()
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
                     Text(mode.title)
                         .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .foregroundStyle(AppTheme.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                        .padding(.top, 4)
                     Text(mode.subtitle)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(AppTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.75)
+                        .padding(.bottom, 2)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 .padding(.horizontal, 8)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .padding(10)
+                .padding(.horizontal, 10)
+                .padding(.bottom, 14)
+                .padding(.top, 2)
             }
 
             if !mode.isPlayable {
@@ -706,10 +813,12 @@ private struct PlayModeCardView: View {
 }
 
 #Preview {
-    UsernameEntryView(
-        username: .constant("Test"),
-        showLobby: .constant(false),
-        isHost: .constant(false),
-        multipeerService: MultipeerService()
-    )
+    NavigationStack {
+        UsernameEntryView(
+            username: .constant("Test"),
+            showLobby: .constant(false),
+            isHost: .constant(false),
+            multipeerService: MultipeerService()
+        )
+    }
 }
