@@ -29,7 +29,6 @@ struct ProfileView: View {
     @State private var editedUsername: String = ""
     @State private var setupName: String = ""
     @State private var selectedAvatar: String = PlayerAvatars.defaultName
-    @State private var showSettings: Bool = false
     @State private var navigateToUsernameEntry: Bool = false
     @State private var setupUsername: String = ""
     @State private var showLobby: Bool = false
@@ -125,23 +124,6 @@ struct ProfileView: View {
         .navigationBarHidden(isInitialSetup)
         .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            if !isInitialSetup {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(AppTheme.accent)
-                            .frame(width: 44, height: 44)
-                            .background(AppTheme.surface)
-                            .clipShape(Circle())
-                            .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-                    }
-                }
-            }
-        }
         .background {
             if isInitialSetup, let service = multipeerService {
                 NavigationLink(
@@ -164,9 +146,6 @@ struct ProfileView: View {
             } else if isInitialSetup {
                 selectedAvatar = PlayerAvatars.defaultName
             }
-        }
-        .sheet(isPresented: $showSettings) {
-            ProfileSettingsSheetView(profileManager: profileManager)
         }
     }
 
@@ -566,21 +545,10 @@ struct ProfileSettingsSheetView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                AppTheme.background
+                Color(hex: "FFCB45")
                     .ignoresSafeArea()
 
                 VStack(spacing: 24) {
-                    NavigationLink(destination: AllPlayersLeaderboardView(profileManager: profileManager)) {
-                        Text("التصنيف")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundColor(AppTheme.textOnAccent)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .background(AppTheme.accent)
-                            .clipShape(Capsule())
-                    }
-
                     settingsMusicSection
 
                     OnlineAccountSection()
@@ -592,7 +560,7 @@ struct ProfileSettingsSheetView: View {
             }
             .navigationTitle("الإعدادات")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(AppTheme.background, for: .navigationBar)
+            .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

@@ -100,23 +100,31 @@ final class VisionClassifier: ObservableObject {
                 guard generation == self?.classifyGeneration else { return }
 
                 if let error = error {
-                    completion(false, 0.0, error.localizedDescription)
+                    DispatchQueue.main.async {
+                        completion(false, 0.0, error.localizedDescription)
+                    }
                     return
                 }
 
             guard let data = data else {
-                completion(false, 0.0, "لا توجد استجابة من الخادم")
+                DispatchQueue.main.async {
+                    completion(false, 0.0, "لا توجد استجابة من الخادم")
+                }
                 return
             }
 
             if let http = response as? HTTPURLResponse, http.statusCode != 200 {
                 let message = Self.apiErrorMessage(from: data) ?? "HTTP \(http.statusCode)"
-                completion(false, 0.0, message)
+                DispatchQueue.main.async {
+                    completion(false, 0.0, message)
+                }
                 return
             }
 
             guard let parsed = Self.parseClassification(from: data) else {
-                completion(false, 0.0, "تعذّر قراءة نتيجة التحليل")
+                DispatchQueue.main.async {
+                    completion(false, 0.0, "تعذّر قراءة نتيجة التحليل")
+                }
                 return
             }
 
@@ -126,7 +134,9 @@ final class VisionClassifier: ObservableObject {
             let confidence = min(max(parsed.confidence, 0), 1)
             let accepted = parsed.found && confidence >= 0.45
             print("🔍 OpenAI: target=\(target) found=\(parsed.found) conf=\(confidence) accepted=\(accepted)")
-            completion(accepted, confidence, display)
+            DispatchQueue.main.async {
+                completion(accepted, confidence, display)
+            }
             }.resume()
         }
     }

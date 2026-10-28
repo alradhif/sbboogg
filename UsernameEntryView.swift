@@ -56,12 +56,48 @@ struct UsernameEntryView: View {
                     .offset(x: -12, y: 230)
                     .allowsHitTesting(false)
 
+                Image("usernameDesertHeader")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: geo.size.width * 1.05, height: min(geo.size.height * 0.44, 220))
+                    .clipped()
+                    .overlay {
+                        LinearGradient(
+                            colors: [
+                                AppTheme.background.opacity(0.55),
+                                AppTheme.background.opacity(0.12),
+                                AppTheme.background.opacity(0.45),
+                                AppTheme.background
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .mask {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0.7), location: 0),
+                                .init(color: .black, location: 0.35),
+                                .init(color: .black.opacity(0.85), location: 0.72),
+                                .init(color: .clear, location: 1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .offset(y: 0)
+                    .allowsHitTesting(false)
+
                 ScrollView {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 16) {
                         Image("camel")
                             .resizable()
                             .scaledToFit()
-                            .frame(height: min(geo.size.height * 0.25, 240))
+                            .frame(height: min(geo.size.height * 0.21, 200))
+                            .padding(.top, max(140, geo.size.height * 0.17))
+                            .padding(.bottom, 0)
+                            .zIndex(1)
 
                         VStack(spacing: 10) {
                             if usernameFromProfile {
@@ -815,7 +851,7 @@ private struct PlayModeCardView: View {
 #Preview {
     NavigationStack {
         UsernameEntryView(
-            username: .constant("Test"),
+            username: .constant(""),
             showLobby: .constant(false),
             isHost: .constant(false),
             multipeerService: MultipeerService()

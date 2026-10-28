@@ -82,15 +82,15 @@ struct InvitationsView: View {
                     .clipShape(Circle())
                     .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             }
-            
+
             Spacer()
-            
+
             Text("الدعوات")
                 .font(.appTitle(24))
                 .foregroundColor(AppTheme.textPrimary)
-            
+
             Spacer()
-            
+
             Image(multipeerService.avatarImageName)
                 .resizable()
                 .scaledToFit()
@@ -98,6 +98,7 @@ struct InvitationsView: View {
                 .clipShape(Circle())
         }
         .padding(.horizontal, 20)
+        .environment(\.layoutDirection, .leftToRight)
     }
 }
 

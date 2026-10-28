@@ -22,7 +22,11 @@ struct GameView: View {
     @State private var hasReportedFind: Bool = false
     @State private var objectFoundByOthers: String? = nil
     @State private var lastClassificationWasSuccess: Bool? = nil
-    @State private var captureTrigger: Bool = false
+    @State private var captureRequestID: Int = 0
+
+    private var isLiveGamePhase: Bool {
+        !showLeaderboard && !gameManager.gameEnded
+    }
 
     var body: some View {
         ZStack {
@@ -81,55 +85,63 @@ struct GameView: View {
                             .fill(Color.black)
                             .frame(height: cameraHeight)
 
-                        if isImageCaptured, let image = capturedImage {
-                            Image(uiImage: image)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
+                        if isLiveGamePhase {
+                            ZStack {
+                                CameraPreviewView(
+                                    capturedImage: $capturedImage,
+                                    classificationResult: $classificationResult,
+                                    isImageCaptured: $isImageCaptured,
+                                    captureRequestID: $captureRequestID,
+                                    isLiveDetectionEnabled: !isImageCaptured && !visionClassifier.isClassifying,
+                                    visionClassifier: visionClassifier,
+                                    targetObject: gameManager.currentChallenge?.objectName ?? "",
+                                    onObjectFound: { found, confidence, detail in
+                                        handleObjectFound(found: found, confidence: confidence, detail: detail)
+                                    }
+                                )
                                 .frame(height: cameraHeight)
-                                .cornerRadius(22)
+                                .clipped()
 
-                            if visionClassifier.isClassifying {
-                                RoundedRectangle(cornerRadius: 22)
-                                    .fill(Color.black.opacity(0.45))
-                                    .frame(height: cameraHeight)
-                                VStack(spacing: 12) {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                        .scaleEffect(1.2)
-                                    Text("جاري التحقق…")
-                                        .font(.appHeadline)
-                                        .foregroundColor(.white)
+                                if isImageCaptured, let image = capturedImage {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(height: cameraHeight)
+                                        .background(Color.black)
+
+                                    if visionClassifier.isClassifying {
+                                        Color.black.opacity(0.45)
+                                        VStack(spacing: 12) {
+                                            ProgressView()
+                                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                                .scaleEffect(1.2)
+                                            Text("جاري التحقق…")
+                                                .font(.appHeadline)
+                                                .foregroundColor(.white)
+                                        }
+                                    }
                                 }
                             }
-                        } else {
-                            CameraPreviewView(
-                                capturedImage: $capturedImage,
-                                classificationResult: $classificationResult,
-                                isImageCaptured: $isImageCaptured,
-                                captureTrigger: $captureTrigger,
-                                isLiveDetectionEnabled: !isImageCaptured,
-                                visionClassifier: visionClassifier,
-                                targetObject: gameManager.currentChallenge?.objectName ?? "",
-                                onObjectFound: { found, confidence, detail in
-                                    handleObjectFound(found: found, confidence: confidence, detail: detail)
-                                }
-                            )
                             .frame(height: cameraHeight)
-                            .cornerRadius(22)
-                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 22))
+                        } else {
+                            RoundedRectangle(cornerRadius: 22)
+                                .fill(Color.black.opacity(0.85))
+                                .frame(height: cameraHeight)
                         }
 
                         HStack {
                             Button("إعادة") {
-                                resetCamera()
+                                resetCamera(immediate: true)
                             }
                             .font(.appHeadline)
                             .foregroundColor(.white)
+                            .buttonStyle(.plain)
 
                             Spacer()
 
                             Button {
-                                captureTrigger = true
+                                captureRequestID += 1
                             } label: {
                                 ZStack {
                                     Circle()
@@ -140,8 +152,9 @@ struct GameView: View {
                                         .frame(width: 50, height: 50)
                                 }
                             }
-                            .disabled(visionClassifier.isClassifying)
-                            .opacity(visionClassifier.isClassifying ? 0.5 : 1)
+                            .buttonStyle(.plain)
+                            .disabled(isImageCaptured && visionClassifier.isClassifying)
+                            .opacity(isImageCaptured && visionClassifier.isClassifying ? 0.5 : 1)
                             .accessibilityLabel(NSLocalizedString("Capture", comment: ""))
 
                             Spacer()
@@ -185,8 +198,17 @@ struct GameView: View {
             visionClassifier.cancelPending()
             resetCamera(immediate: true)
         }
-        .onChange(of: gameManager.gameEnded) { ended in
-            if ended { showLeaderboard = true }
+        .onChange(of: gameManager.gameEnded) { _, ended in
+            if ended {
+                visionClassifier.cancelPending()
+                resetCamera(immediate: true)
+                showLeaderboard = true
+            }
+        }
+        .onChange(of: showLeaderboard) { _, showing in
+            if showing {
+                visionClassifier.cancelPending()
+            }
         }
         .fullScreenCover(isPresented: $showLeaderboard) {
             LeaderboardView(
@@ -258,6 +280,7 @@ struct GameView: View {
     }
 
     func resetCamera(immediate: Bool = false) {
+        visionClassifier.cancelPending()
         let apply = {
             capturedImage = nil
             classificationResult = nil
@@ -269,9 +292,7 @@ struct GameView: View {
         if immediate {
             apply()
         } else {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                apply()
-            }
+            DispatchQueue.main.async(execute: apply)
         }
     }
 }
