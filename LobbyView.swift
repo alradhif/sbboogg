@@ -208,33 +208,34 @@ struct LobbyView: View {
     
     private var headerSection: some View {
         HStack {
-            // Back button
-//            Button(action: {
-//                dismiss()
-//            }) {
-//                Image(systemName: "chevron.left")
-//                    .font(.system(size: 20, weight: .semibold))
-//                    .foregroundColor(.black)
-//            }
-            
-            Spacer()
-            
-            // Title
-            Text("الميدان")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(AppTheme.textPrimary)
-            
-            Spacer()
-            
-            // Camel icon
-            Image(multipeerService.avatarImageName)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 40, height: 40)
-                .clipShape(Circle())
+                // Back button
+                Button(action: {
+                    multipeerService.stop()  // ✅ أوقفي الاتصال
+                    dismiss()  // ✅ ارجعي للصفحة السابقة
+                }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.black)
+                }
+                
+                Spacer()
+                
+                // Title
+                Text("الميدان")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(AppTheme.textPrimary)
+                
+                Spacer()
+                
+                // Camel icon
+                Image(multipeerService.avatarImageName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 40, height: 40)
+                    .clipShape(Circle())
+            }
+            .padding(.horizontal, 20)
         }
-        .padding(.horizontal, 20)
-    }
     
     private var playersListCard: some View {
         VStack(spacing: 12) {

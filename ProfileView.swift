@@ -58,7 +58,7 @@ struct ProfileView: View {
                 .navigationViewStyle(.stack)
             }
         }
-        .environment(\.layoutDirection, .leftToRight)
+//        .environment(\.layoutDirection, .leftToRight)
         .fullScreenCover(isPresented: Binding(
             get: { !isInitialSetup && navigateToUsernameEntry },
             set: { navigateToUsernameEntry = $0 }
@@ -76,7 +76,7 @@ struct ProfileView: View {
 
     private var profileScreen: some View {
         ZStack {
-            Color(hex: "FFCB45")
+            AppTheme.background
                 .ignoresSafeArea()
 
             GeometryReader { geo in
@@ -123,7 +123,7 @@ struct ProfileView: View {
             }
         }
         .navigationBarHidden(isInitialSetup)
-        .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
+        .toolbarBackground(Color("mainColor"), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             if !isInitialSetup {
@@ -171,7 +171,7 @@ struct ProfileView: View {
     private var profileSettingsSheet: some View {
         NavigationView {
             ZStack {
-                Color(hex: "FFCB45")
+                AppTheme.background
                     .ignoresSafeArea()
 
                 VStack(spacing: 24) {
@@ -188,14 +188,17 @@ struct ProfileView: View {
 
                     musicSection
 
+                    OnlineAccountSection()
+
                     Spacer()
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
             }
-            .navigationTitle("الإعدادات")
+            .navigationTitle("")
+            .accentColor(.black)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
+            .toolbarBackground(Color("mainColor"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -208,14 +211,14 @@ struct ProfileView: View {
             }
         }
         .navigationViewStyle(.stack)
-        .environment(\.layoutDirection, .leftToRight)
+//        .environment(\.layoutDirection, .leftToRight)
     }
 
     func completeSetup() {
         let trimmed = setupName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, multipeerService != nil else { return }
 
-        _ = profileManager.getOrCreateProfile(username: trimmed)
+        _ = profileManager.getOrCreateLocalProfile(username: trimmed)
         profileManager.updateAvatar(selectedAvatar)
         setupUsername = trimmed
         navigateToUsernameEntry = true

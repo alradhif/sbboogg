@@ -38,6 +38,23 @@ class GameManager: ObservableObject {
         ObjectChallenge(objectName: "keys", round: 10)
     ]
     
+    /// Every round won first, used as the finish line of the race track.
+    var maxPossibleScore: Int { challenges.count * 2 }
+
+    /// Set when this game is played online; rounds and scores then come from Supabase.
+    weak var onlineRoom: OnlineRoom?
+    var isOnline: Bool { onlineRoom != nil }
+
+    /// How this phone's player is identified in `players`.
+    var myPlayerKey: String {
+        if let id = onlineRoom?.myID { return id.uuidString }
+        return multipeerService.myPeerID.displayName
+    }
+
+    func recordOnlineResult(score: Int, won: Bool) {
+        profileManager?.recordLocalResult(gameScore: score, won: won)
+    }
+    
     init(multipeerService: MultipeerService, profileManager: ProfileManager? = nil) {
         self.multipeerService = multipeerService
         self.profileManager = profileManager
@@ -306,14 +323,23 @@ class GameManager: ObservableObject {
         // Determine winner (highest score)
         let winner = leaderboard.first
         
-        // Save scores for all players
+        let myPeerID = multipeerService.myPeerID.displayName
+        let myUsername = multipeerService.username
+        
         for player in players {
             let won = winner?.username == player.username
-            profileManager.updateProfile(
-                username: player.username,
-                gameScore: player.score,
-                won: won
-            )
+            let isMe = player.peerID.isEmpty
+                ? player.username == myUsername
+                : player.peerID == myPeerID
+            if isMe {
+                profileManager.recordLocalResult(gameScore: player.score, won: won)
+            } else {
+                profileManager.recordOpponentResult(
+                    username: player.username,
+                    gameScore: player.score,
+                    won: won
+                )
+            }
         }
     }
     
