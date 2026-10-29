@@ -37,6 +37,9 @@ class GameManager: ObservableObject {
         ObjectChallenge(objectName: "watch", round: 9),
         ObjectChallenge(objectName: "keys", round: 10)
     ]
+
+    /// أعلى نقاط ممكنة (أول من يلقى الغرض ياخذ ٢ كل جولة) — نهاية مسار السباق.
+    var maxPossibleScore: Int { challenges.count * 2 }
     
     init(multipeerService: MultipeerService, profileManager: ProfileManager? = nil) {
         self.multipeerService = multipeerService
@@ -200,6 +203,7 @@ class GameManager: ObservableObject {
         
         // Local processing
         if found {
+            roundAnswers[multipeerService.username] = (found: true, time: responseTime)
             let points = awardPoints(for: multipeerService.username)
             print("✅ Object found! Points: \(points), Time: \(responseTime)s")
             
@@ -231,8 +235,11 @@ class GameManager: ObservableObject {
         roundEnded = true
         timer?.invalidate()
         
-        // Wait a moment for all object detections, then move to next round
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+        // الضيوف ينتظرون سؤال الجولة الجاية من المضيف بدل ما يتقدمون لحالهم
+        guard multipeerService.isHost else { return }
+        
+        // Brief pause so late answers can arrive, then next round
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()
@@ -248,7 +255,7 @@ class GameManager: ObservableObject {
         timer?.invalidate()
         
         // Short delay to let UIs show the success message then move on
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()
@@ -396,6 +403,10 @@ class GameManager: ObservableObject {
                 if let challenge = challenges.first(where: { $0.objectName == objectName && $0.round == round }) {
                     currentChallenge = challenge
                     timeRemaining = roundDuration
+                    // بدون هذا الضيف يحسب أول لاقي من الجولة اللي قبل ويعطي ١ بدل ٢
+                    roundAnswers = [:]
+                    roundFirstFinder = nil
+                    roundEnded = false
                     if !multipeerService.isHost {
                         startTimer()
                     }
@@ -408,6 +419,8 @@ class GameManager: ObservableObject {
                let found = message.answer, // 1 = found, 0 = not found
                let responseTime = message.responseTime,
                let challenge = currentChallenge {
+                // نفس اللاعب ما ياخذ نقاط مرتين في نفس الجولة
+                if roundAnswers[username]?.found == true { break }
                 // Store result for processing
                 roundAnswers[username] = (found: found == 1, time: responseTime)
                 

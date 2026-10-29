@@ -182,7 +182,16 @@ struct LobbyView: View {
             )
         }
         .fullScreenCover(isPresented: $showGame) {
-            GameView(gameManager: gameManager, multipeerService: multipeerService)
+            GameView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: {
+                    // نفس خروج شاشة العد التنازلي: نرجع للوبي
+                    showGame = false
+                    gameManager.resetForLobby()
+                    setupLobby()
+                }
+            )
         }
         .fullScreenCover(isPresented: $showLeaderboard) {
             LeaderboardView(gameManager: gameManager, multipeerService: multipeerService)
