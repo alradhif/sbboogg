@@ -23,7 +23,15 @@ enum SupabaseConfig {
     static var isConfigured: Bool { !url.absoluteString.contains("YOUR-PROJECT-REF") && anonKey != "YOUR-ANON-KEY" }
 }
 
-let supabase = SupabaseClient(supabaseURL: SupabaseConfig.url, supabaseKey: SupabaseConfig.anonKey)
+let supabase = SupabaseClient(
+    supabaseURL: SupabaseConfig.url,
+    supabaseKey: SupabaseConfig.anonKey,
+    options: SupabaseClientOptions(
+        // السلوك الجديد في supabase-swift: الجلسة المحفوظة تطلع أول دائماً حتى لو منتهية
+        // (يسكّت تحذير "Initial session emitted…"). نتحقق من isExpired تحت.
+        auth: SupabaseClientOptions.AuthOptions(emitLocalSessionAsInitialSession: true)
+    )
+)
 
 @MainActor
 final class AuthService: ObservableObject {
@@ -90,7 +98,11 @@ final class AuthService: ObservableObject {
     // MARK: - Private
 
     private func listenForAuthChanges() async {
-        for await _ in supabase.auth.authStateChanges {
+        for await (event, session) in supabase.auth.authStateChanges {
+            // جلسة محفوظة منتهية: ننتظر التجديد (tokenRefreshed) أو signedOut بدل ما نعتبره داخل
+            if event == .initialSession, let session, session.isExpired {
+                continue
+            }
             updateState()
         }
     }
