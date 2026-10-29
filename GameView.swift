@@ -6,26 +6,23 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct GameView: View {
     @ObservedObject var gameManager: GameManager
     @ObservedObject var multipeerService: MultipeerService
+    var onExitGame: () -> Void
 
-    // ✅ بدل CoreML
     @StateObject private var visionClassifier = VisionClassifier()
 
     @State private var capturedImage: UIImage?
     @State private var classificationResult: String?
     @State private var isImageCaptured: Bool = false
-    @State private var showResult: Bool = false
-    @State private var resultMessage: String = ""
     @State private var showLeaderboard: Bool = false
     @State private var hasReportedFind: Bool = false
     @State private var objectFoundByOthers: String? = nil
     @State private var lastClassificationWasSuccess: Bool? = nil
     @State private var captureTrigger: Bool = false
-    @State private var navigateToUsernameEntry: Bool = false
-    @Environment(\.dismiss) var dismissGameView
 
     var body: some View {
         ZStack {
@@ -37,22 +34,7 @@ struct GameView: View {
 
                 VStack(spacing: 16) {
                     HStack {
-                        Button {
-                            multipeerService.stop()
-                            if let room = gameManager.onlineRoom {
-                                Task { await room.leave() }
-                            }
-                            BackgroundMusicManager.shared.stopBackgroundMusic()
-                            navigateToUsernameEntry = true
-                        } label: {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(AppTheme.accent)
-                                .frame(width: 44, height: 44)
-                                .background(AppTheme.surface)
-                                .clipShape(Circle())
-                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-                        }
+                        GameExitConfirmButton(onConfirm: exitFromGame)
 
                         Spacer()
                     }
@@ -105,16 +87,31 @@ struct GameView: View {
                                 .aspectRatio(contentMode: .fit)
                                 .frame(height: cameraHeight)
                                 .cornerRadius(22)
+
+                            if visionClassifier.isClassifying {
+                                RoundedRectangle(cornerRadius: 22)
+                                    .fill(Color.black.opacity(0.45))
+                                    .frame(height: cameraHeight)
+                                VStack(spacing: 12) {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .scaleEffect(1.2)
+                                    Text("جاري التحقق…")
+                                        .font(.appHeadline)
+                                        .foregroundColor(.white)
+                                }
+                            }
                         } else {
                             CameraPreviewView(
                                 capturedImage: $capturedImage,
                                 classificationResult: $classificationResult,
                                 isImageCaptured: $isImageCaptured,
                                 captureTrigger: $captureTrigger,
+                                isLiveDetectionEnabled: !isImageCaptured,
                                 visionClassifier: visionClassifier,
                                 targetObject: gameManager.currentChallenge?.objectName ?? "",
-                                onObjectFound: { found, confidence in
-                                    handleObjectFound(found: found, confidence: confidence)
+                                onObjectFound: { found, confidence, detail in
+                                    handleObjectFound(found: found, confidence: confidence, detail: detail)
                                 }
                             )
                             .frame(height: cameraHeight)
@@ -124,10 +121,12 @@ struct GameView: View {
 
                         HStack {
                             Button("إعادة") {
-                                resetCamera()
+                                retakePhoto()
                             }
                             .font(.appHeadline)
                             .foregroundColor(.white)
+                            .disabled(hasReportedFind)
+                            .opacity(hasReportedFind ? 0.5 : 1)
 
                             Spacer()
 
@@ -143,6 +142,9 @@ struct GameView: View {
                                         .frame(width: 50, height: 50)
                                 }
                             }
+                            // الالتقاط بس والكاميرا ظاهرة، وإلا يعلق الطلب ويلتقط لحاله بعد "إعادة"
+                            .disabled(isImageCaptured || visionClassifier.isClassifying)
+                            .opacity(isImageCaptured || visionClassifier.isClassifying ? 0.5 : 1)
                             .accessibilityLabel(NSLocalizedString("Capture", comment: ""))
 
                             Spacer()
@@ -163,13 +165,18 @@ struct GameView: View {
                     )
                     .padding(.horizontal, 20)
 
-                    if let result = classificationResult, lastClassificationWasSuccess == false {
-                        Text("جرب مرة اخرى!")
+                    if let result = classificationResult {
+                        Text(result)
                             .font(.appHeadline)
-                            .foregroundColor(AppTheme.error)
+                            .foregroundColor(lastClassificationWasSuccess == true ? AppTheme.accent : AppTheme.error)
+                            .multilineTextAlignment(.center)
                             .padding()
-                            .background(AppTheme.error.opacity(0.1))
+                            .background(
+                                (lastClassificationWasSuccess == true ? AppTheme.accent : AppTheme.error)
+                                    .opacity(0.12)
+                            )
                             .cornerRadius(10)
+                            .padding(.horizontal, 20)
                     }
 
                     Spacer()
@@ -177,32 +184,25 @@ struct GameView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .alert("Result", isPresented: $showResult) {
-            Button("OK") {
-                showResult = false
-                resetCamera()
-            }
-        } message: {
-            Text(resultMessage)
+        .onChange(of: gameManager.currentRound) { _, _ in
+            visionClassifier.cancelPending()
+            resetCamera(immediate: true)
         }
-        .onChange(of: gameManager.gameEnded) { ended in
+        .onChange(of: gameManager.gameEnded) { _, ended in
             if ended { showLeaderboard = true }
         }
         .fullScreenCover(isPresented: $showLeaderboard) {
-            LeaderboardView(gameManager: gameManager, multipeerService: multipeerService)
-        }
-        .fullScreenCover(isPresented: $navigateToUsernameEntry) {
-            NavigationView {
-                UsernameEntryView(
-                    username: .constant(""),
-                    showLobby: .constant(false),
-                    isHost: .constant(false),
-                    multipeerService: MultipeerService()
-                )
-            }
+            LeaderboardView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: onExitGame
+            )
         }
         .onAppear {
             BackgroundMusicManager.shared.startBackgroundMusic()
+            if gameManager.gameEnded {
+                showLeaderboard = true
+            }
         }
     }
 
@@ -213,6 +213,7 @@ struct GameView: View {
         }
         switch objectName.lowercased() {
         case "book": return "كتاب!"
+        case "glasses": return "نظارة!"
         case "water bottle": return "علبة موية!"
         case "phone", "mobile", "smartphone": return "جوال!"
         case "cup", "mug": return "كوب!"
@@ -225,39 +226,55 @@ struct GameView: View {
         }
     }
 
-    func handleObjectFound(found: Bool, confidence: Double) {
+    func handleObjectFound(found: Bool, confidence: Double, detail: String) {
         guard !hasReportedFind else { return }
         guard let challenge = gameManager.currentChallenge else { return }
 
         lastClassificationWasSuccess = found
+        classificationResult = found ? "✅ \(detail)" : "❌ \(detail)"
+
         if found {
             hasReportedFind = true
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             if let room = gameManager.onlineRoom {
                 // Online: the server decides the points (first finder, round type, pen bonus).
                 Task { @MainActor in
                     let points = await room.submitFind(label: challenge.objectName, confidence: confidence)
-                    resultMessage = points.map {
-                        String(format: NSLocalizedString("Found %@! +%d points", comment: ""), challenge.objectName, $0)
-                    } ?? NSLocalizedString("الشوط خلص قبل ما توصل لقطتك.", comment: "")
-                    showResult = true
+                    if let points {
+                        classificationResult = "صح! \(arabicName(for: challenge.objectName))\n+\(points) نقطة"
+                    } else {
+                        classificationResult = "الشوط خلص قبل ما توصل لقطتك."
+                    }
                 }
                 return
             }
             let points = gameManager.submitObjectFound(found: true, confidence: confidence) ?? 0
-            resultMessage = String(
-                format: NSLocalizedString("Found %@! +%d points", comment: ""),
-                challenge.objectName,
-                points
-            )
-            showResult = true
+            classificationResult = "صح! \(arabicName(for: challenge.objectName))\n\(detail)\n+\(points) نقطة"
         } else {
-            resultMessage = NSLocalizedString("That's not the right object. Try again!", comment: "")
-            showResult = true
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            classificationResult = "مو صحيح.\n\(detail)\nصوّر \(ObjectDisplayNames.arabicShort(forGameObject: challenge.objectName)) أوضح وجرّب مرة ثانية"
         }
     }
 
-    func resetCamera() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+    private func exitFromGame() {
+        visionClassifier.cancelPending()
+        multipeerService.stop()
+        BackgroundMusicManager.shared.stopBackgroundMusic()
+        if let room = gameManager.onlineRoom {
+            Task { await room.leave() }
+        }
+        onExitGame()
+    }
+
+    /// "إعادة" بعد صورة غلط: نلغي التحقق الجاري ونرجع الكاميرا.
+    private func retakePhoto() {
+        guard !hasReportedFind else { return }
+        visionClassifier.cancelPending()
+        resetCamera()
+    }
+
+    func resetCamera(immediate: Bool = false) {
+        let apply = {
             capturedImage = nil
             classificationResult = nil
             isImageCaptured = false
@@ -265,14 +282,17 @@ struct GameView: View {
             objectFoundByOthers = nil
             lastClassificationWasSuccess = nil
         }
+        if immediate {
+            apply()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                apply()
+            }
+        }
     }
 }
 
-// MARK: - Live race track
-
-/// Each player's camel runs toward the finish line as their score grows.
-/// Scores already reach every device through the host's answer and
-/// leaderboard messages, so this view only reads `gameManager.players`.
+// MARK: - Race track (سباق الإبل أثناء الجولات)
 struct RaceTrackView: View {
     let players: [Player]
     let maxScore: Int
@@ -293,7 +313,6 @@ struct RaceTrackView: View {
         let sorted = players.sorted { $0.score > $1.score }
         var result: [String: Int] = [:]
         for (index, player) in sorted.enumerated() {
-            // Players on the same score share a rank
             if index > 0, sorted[index - 1].score == player.score {
                 result[player.username] = result[sorted[index - 1].username]
             } else {
@@ -343,8 +362,6 @@ struct RaceTrackView: View {
         .frame(height: CGFloat(max(players.count, 1)) * laneHeight + 12)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .environment(\.layoutDirection, .leftToRight)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilitySummary)
         .onAppear {
             lastScores = Dictionary(players.map { ($0.username, $0.score) }, uniquingKeysWith: { first, _ in first })
         }
@@ -411,7 +428,7 @@ struct RaceTrackView: View {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                 gains[username] = gain
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                 withAnimation(.easeOut(duration: 0.25)) {
                     _ = gains.removeValue(forKey: username)
                 }
@@ -420,23 +437,52 @@ struct RaceTrackView: View {
         lastScores = Dictionary(players.map { ($0.username, $0.score) }, uniquingKeysWith: { first, _ in first })
     }
 
-    private var accessibilitySummary: String {
-        players
-            .sorted { $0.score > $1.score }
-            .map { "\($0.username) \($0.score)" }
-            .joined(separator: "، ")
-    }
-
-    private static func arabicNumeral(_ value: Int) -> String {
+    private static let arabicFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "ar")
-        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        return formatter
+    }()
+
+    private static func arabicNumeral(_ value: Int) -> String {
+        arabicFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
+    }
+}
+
+// MARK: - Exit button
+/// زر خروج من القيم مع تأكيد — يرجع لشاشة اسم المستخدم عبر `onConfirm`.
+struct GameExitConfirmButton: View {
+    let onConfirm: () -> Void
+
+    @State private var showAlert = false
+
+    var body: some View {
+        Button {
+            showAlert = true
+        } label: {
+            Image(systemName: "rectangle.portrait.and.arrow.right")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(AppTheme.accent)
+                .frame(width: 44, height: 44)
+                .background(AppTheme.surface)
+                .clipShape(Circle())
+                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        }
+        .accessibilityLabel("خروج من القيم")
+        .alert("تنبيه", isPresented: $showAlert) {
+            Button("لا، أبقى", role: .cancel) {}
+            Button("أطلع من القيم", role: .destructive) {
+                onConfirm()
+            }
+        } message: {
+            Text("ترى بتطلع من القيم")
+        }
     }
 }
 
 #Preview {
     GameView(
         gameManager: GameManager(multipeerService: MultipeerService()),
-        multipeerService: MultipeerService()
+        multipeerService: MultipeerService(),
+        onExitGame: {}
     )
 }
