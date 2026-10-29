@@ -127,10 +127,9 @@ final class OnlineRoom: ObservableObject {
     func create(username: String, avatarImageName: String) async {
         guard roomID == nil else { return }
         await run {
-            async let profileSync: Void = try self.pushProfile(username: username, avatarImageName: avatarImageName)
-            async let createdRows: [CreatedRoom] = supabase.rpc("create_room").execute().value
-            _ = try await profileSync
-            guard let created = try await createdRows.first else { throw URLError(.badServerResponse) }
+            await self.syncProfileToServer(username: username, avatarImageName: avatarImageName)
+            let createdRows: [CreatedRoom] = try await supabase.rpc("create_room").execute().value
+            guard let created = createdRows.first else { throw URLError(.badServerResponse) }
             self.code = created.code
             self.isHost = true
             try await self.enter(created.roomID)
@@ -138,22 +137,59 @@ final class OnlineRoom: ObservableObject {
     }
 
     func join(code: String, username: String, avatarImageName: String) async {
-        let cleaned = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard cleaned.count >= 5, roomID == nil else { return }
+        let cleaned = RoomCodeFormatter.normalize(code)
+        guard cleaned.count == 5, roomID == nil else {
+            if cleaned.count < 5 {
+                errorMessage = "الكود لازم يكون 5 أحرف أو أرقام (إنجليزي)."
+            }
+            return
+        }
         await run {
-            async let profileSync: Void = try self.pushProfile(username: username, avatarImageName: avatarImageName)
-            async let joinedRoomID: UUID = supabase.rpc("join_room", params: ["p_code": cleaned]).execute().value
-            _ = try await profileSync
-            try await self.enter(try await joinedRoomID)
+            await self.syncProfileToServer(username: username, avatarImageName: avatarImageName)
+            let joinedRoomID: UUID = try await supabase.rpc("join_room", params: ["p_code": cleaned]).execute().value
+            try await self.enter(joinedRoomID)
+        }
+    }
+
+    /// Best-effort: duplicate usernames on Supabase must not block joining a room.
+    private func syncProfileToServer(username: String, avatarImageName: String) async {
+        do {
+            try await pushProfile(username: username, avatarImageName: avatarImageName)
+        } catch {
+            #if DEBUG
+            print("⚠️ profile sync skipped: \(error)")
+            #endif
         }
     }
 
     private func pushProfile(username: String, avatarImageName: String) async throws {
-        guard let myID, username.count >= 2 else {
-            throw URLError(.userAuthenticationRequired)
+        let myID = try await requireUserID()
+        guard username.count >= 2 else {
+            throw NSError(domain: "sbog.online", code: 2, userInfo: [NSLocalizedDescriptionKey: "username_min_length"])
         }
+        let avatar = PlayerAvatars.imageName(for: avatarImageName)
+        let trimmed = String(username.prefix(18))
+        var candidates: [String] = [String(username.prefix(20))]
+        candidates.append(trimmed + String(Int.random(in: 10 ... 99)))
+        candidates.append(trimmed + String(Int.random(in: 100 ... 9999)))
+
+        for candidate in candidates {
+            let name = String(candidate.prefix(20))
+            guard name.count >= 2 else { continue }
+            do {
+                _ = try await supabase.from("profiles")
+                    .update(["username": name, "avatar_image_name": avatar])
+                    .eq("id", value: myID.uuidString)
+                    .execute()
+                return
+            } catch {
+                if Self.isDuplicateUsername(error) { continue }
+                throw error
+            }
+        }
+
         _ = try await supabase.from("profiles")
-            .update(["username": String(username.prefix(20)), "avatar_image_name": avatarImageName])
+            .update(["avatar_image_name": avatar])
             .eq("id", value: myID.uuidString)
             .execute()
     }
@@ -212,14 +248,20 @@ final class OnlineRoom: ObservableObject {
         finished = false
         shownRound = 0
         advancedRound = 0
-        try await refresh()
+        do {
+            try await refresh()
+        } catch {
+            try await Task.sleep(nanoseconds: 350_000_000)
+            try await refresh()
+        }
         await listen(to: roomID)
         Task { try? await self.loadChallengesIfNeeded() }
     }
 
     private func noteOpponentDepartureIfNeeded(
         activeBefore: [(id: UUID, score: Int)],
-        activeNow: [OnlinePlayerRow]
+        activeNow: [OnlinePlayerRow],
+        allRows: [OnlinePlayerRow]
     ) {
         guard status == "playing",
               let gm = gameManager,
@@ -231,13 +273,26 @@ final class OnlineRoom: ObservableObject {
         guard activeIDs.contains(myID) else { return }
 
         let departed = activeBefore.filter { !activeIDs.contains($0.id) && $0.id != myID }
-        guard let gone = departed.first,
-              let mySnap = activeBefore.first(where: { $0.id == myID }) else { return }
+        if let gone = departed.first,
+           let mySnap = activeBefore.first(where: { $0.id == myID }) {
+            gm.finishGameBecauseOpponentQuit(
+                leaverPeerID: gone.id.uuidString,
+                myScore: mySnap.score,
+                leaverScore: gone.score
+            )
+            return
+        }
 
+        // Snapshot may be empty on first poll — if only we remain and someone left, we win.
+        guard activeNow.count == 1,
+              activeNow[0].playerID == myID,
+              allRows.contains(where: { $0.leftAt != nil && $0.playerID != myID }) else { return }
+
+        let leaver = allRows.first { $0.leftAt != nil && $0.playerID != myID }
         gm.finishGameBecauseOpponentQuit(
-            leaverPeerID: gone.id.uuidString,
-            myScore: mySnap.score,
-            leaverScore: gone.score
+            leaverPeerID: leaver?.playerID.uuidString ?? UUID().uuidString,
+            myScore: activeNow[0].score,
+            leaverScore: leaver?.score ?? 0
         )
     }
 
@@ -333,8 +388,12 @@ final class OnlineRoom: ObservableObject {
         isHost = room.hostID == myID
         status = room.status
         players = rows
-        noteOpponentDepartureIfNeeded(activeBefore: lastActiveSnapshot, activeNow: rows.filter { $0.leftAt == nil })
-        lastActiveSnapshot = rows.filter { $0.leftAt == nil }.map { ($0.playerID, $0.score) }
+        let active = rows.filter { $0.leftAt == nil }
+        if room.status == "playing", lastActiveSnapshot.isEmpty, active.count >= 2 {
+            lastActiveSnapshot = active.map { ($0.playerID, $0.score) }
+        }
+        noteOpponentDepartureIfNeeded(activeBefore: lastActiveSnapshot, activeNow: active, allRows: rows)
+        lastActiveSnapshot = active.map { ($0.playerID, $0.score) }
         gameManager?.applyOnlinePlayers(activePlayers)
 
         if room.status == "playing", room.currentRound > shownRound {
@@ -402,6 +461,16 @@ final class OnlineRoom: ObservableObject {
         }
     }
 
+    private func requireUserID() async throws -> UUID {
+        if let myID { return myID }
+        await AuthService.shared.prepareForOnlinePlay()
+        for _ in 0..<40 {
+            if let myID { return myID }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        throw URLError(.userAuthenticationRequired)
+    }
+
     private func run(_ action: () async throws -> Void) async {
         guard !isWorking else { return }
         isWorking = true
@@ -419,15 +488,45 @@ final class OnlineRoom: ObservableObject {
     }
 
     private static func message(for error: Error) -> String {
-        let text = String(describing: error)
+        let text = errorText(error)
         if text.contains("room_not_found") { return "ما لقينا غرفة بهالكود، أو اللعبة بدأت." }
         if text.contains("room_full") { return "الغرفة مليانة (٥ لاعبين)." }
         if text.contains("need_at_least_2_players") { return "لازم لاعبين على الأقل." }
-        if let urlError = error as? URLError, urlError.code == .userAuthenticationRequired {
-            return "جاري تسجيل الدخول… حاول بعد ثانية."
+        if text.contains("23505") || text.contains("profiles_username_key") {
+            return "الاسم مستخدم من لاعب ثاني — دخلناك الغرفة باسم ضيف."
         }
+        if text.contains("PGRST116") || text.contains("0 rows") {
+            return "ما لقينا الغرفة. تأكد من الكود."
+        }
+        if text.contains("decoding") || text.contains("DecodingError") {
+            return "رد غير متوقع من السيرفر. حاول مرة ثانية."
+        }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .userAuthenticationRequired:
+                return "ما قدرنا نسجّل دخولك. تأكد من النت وحاول مرة ثانية."
+            case .notConnectedToInternet, .networkConnectionLost, .timedOut:
+                return "ما فيه نت. تأكد من الاتصال وحاول مرة ثانية."
+            default:
+                break
+            }
+        }
+        if text.contains("username_min_length") { return "اسمك لازم يكون حرفين على الأقل (من الملف الشخصي)." }
         if !SupabaseConfig.isConfigured { return "حط رابط Supabase والمفتاح في AuthService.swift أول." }
+        #if DEBUG
+        return "خطأ: \(text.prefix(120))"
+        #else
         return "صار خطأ، حاول مرة ثانية."
+        #endif
+    }
+
+    private static func isDuplicateUsername(_ error: Error) -> Bool {
+        let text = errorText(error)
+        return text.contains("23505") || text.contains("profiles_username_key") || text.contains("duplicate key")
+    }
+
+    private static func errorText(_ error: Error) -> String {
+        String(describing: error) + " " + (error as NSError).localizedDescription
     }
 }
 

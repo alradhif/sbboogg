@@ -23,8 +23,15 @@ struct LeaderboardView: View {
     }
 
     private var userIsWinner: Bool {
-        guard !multipeerService.username.isEmpty,
-              let first = gameManager.leaderboard.first else { return false }
+        guard let first = gameManager.leaderboard.first else { return false }
+        if gameManager.isOnline {
+            return first.peerID == gameManager.myPlayerKey
+        }
+        if gameManager.opponentLeftNotice != nil,
+           first.peerID == gameManager.myPlayerKey {
+            return true
+        }
+        guard !multipeerService.username.isEmpty else { return false }
         return first.username == multipeerService.username
     }
 
@@ -160,7 +167,8 @@ struct LeaderboardView: View {
 
             RaceFinishView(
                 players: gameManager.leaderboard,
-                myUsername: multipeerService.username
+                myUsername: multipeerService.username,
+                myPeerID: gameManager.myPlayerKey
             )
             .padding(.top, 0)
 
@@ -185,7 +193,8 @@ struct LeaderboardView: View {
             if gameManager.leaderboard.count > 1 {
                 RaceFinishView(
                     players: gameManager.leaderboard,
-                    myUsername: multipeerService.username
+                    myUsername: multipeerService.username,
+                    myPeerID: gameManager.myPlayerKey
                 )
                 .padding(.top, 0)
             }
@@ -261,9 +270,15 @@ struct LeaderboardView: View {
 struct RaceFinishView: View {
     let players: [Player]
     let myUsername: String
+    var myPeerID: String = ""
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var progress: CGFloat = 0
+
+    private func matchesPlayer(_ player: Player) -> Bool {
+        if !myPeerID.isEmpty { return player.peerID == myPeerID }
+        return player.username == myUsername
+    }
 
     private let trackHeight: CGFloat = 160
     private let tokenSize: CGFloat = 46
@@ -336,7 +351,7 @@ struct RaceFinishView: View {
     }
 
     private func lane(for player: Player, rank: Int, delay: Double) -> some View {
-        let isMe = player.username == myUsername
+        let isMe = matchesPlayer(player)
         let fraction: CGFloat = topScore > 0
             ? CGFloat(player.score) / CGFloat(topScore)
             : 0

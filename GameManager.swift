@@ -172,7 +172,9 @@ class GameManager: ObservableObject {
                 recordOnlineResult(score: me.score, won: true)
             }
         }
-        gameEnded = true
+        DispatchQueue.main.async { [weak self] in
+            self?.gameEnded = true
+        }
     }
     
     func startGame() {
@@ -305,7 +307,7 @@ class GameManager: ObservableObject {
         timer?.invalidate()
         
         // Brief pause so late answers can arrive, then next round
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()
@@ -314,13 +316,13 @@ class GameManager: ObservableObject {
             }
         }
     }
-
+    
     private func endRoundEarly() {
         guard !roundEnded else { return }
         roundEnded = true
         timer?.invalidate()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self = self else { return }
             if self.currentRound < self.challenges.count {
                 self.startRound()

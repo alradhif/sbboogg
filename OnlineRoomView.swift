@@ -18,13 +18,12 @@ struct OnlineRoomView: View {
     @ObservedObject private var auth = AuthService.shared
     @StateObject private var room = OnlineRoom()
     @StateObject private var profileManager = ProfileManager()
-    // Never started: GameView and LeaderboardView expect one, and it carries our name.
     @StateObject private var multipeerService: MultipeerService
     @StateObject private var gameManager: GameManager
     @State private var codeInput = ""
     @State private var showGame = false
-    @State private var roomTapLocked = false
     @State private var pendingRoomAction: PendingRoomAction?
+    @FocusState private var codeFieldFocused: Bool
 
     private enum PendingRoomAction {
         case create, join
@@ -38,6 +37,13 @@ struct OnlineRoomView: View {
         _gameManager = StateObject(wrappedValue: GameManager(multipeerService: service))
     }
 
+    private var displayUsername: String {
+        let fromProp = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        if fromProp.count >= 2 { return fromProp }
+        let fromProfile = profileManager.currentProfile?.username.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return fromProfile.count >= 2 ? fromProfile : fromProp
+    }
+
     var body: some View {
         ZStack {
             AppTheme.background.ignoresSafeArea()
@@ -48,44 +54,42 @@ struct OnlineRoomView: View {
                     .padding(.top, 4)
 
                 Group {
-                    switch auth.state {
-                    case .loading:
-                        VStack(spacing: 12) {
-                            ProgressView()
-                            Text("جاري الاتصال…")
-                                .font(.appBody)
-                                .foregroundColor(AppTheme.textSecondary)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    case .signedOut:
+                    if room.roomID != nil {
                         ScrollView {
-                            SignInOptionsView()
+                            lobby
                                 .padding(.horizontal, 28)
                                 .padding(.vertical, 16)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    case .guest, .facebook:
-                        if room.roomID == nil {
-                            ScrollView(showsIndicators: false) {
+                    } else {
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 16) {
+                                if auth.state == .loading {
+                                    HStack(spacing: 10) {
+                                        ProgressView()
+                                        Text("جاري الاتصال…")
+                                            .font(.appBody)
+                                            .foregroundColor(AppTheme.textSecondary)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                }
+
+                                if auth.state == .signedOut {
+                                    SignInOptionsView()
+                                }
+
                                 createOrJoin
-                                    .padding(.horizontal, 28)
-                                    .padding(.top, 10)
-                                    .padding(.bottom, 32)
                             }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        } else {
-                            ScrollView {
-                                lobby
-                                    .padding(.horizontal, 28)
-                                    .padding(.vertical, 16)
-                            }
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 10)
+                            .padding(.bottom, 32)
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
-                if let message = room.errorMessage {
+                if let message = room.errorMessage ?? auth.errorMessage {
                     Text(message)
                         .font(.appCaption)
                         .foregroundColor(AppTheme.error)
@@ -95,6 +99,7 @@ struct OnlineRoomView: View {
                 }
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .scrollDismissesKeyboard(.interactively)
         .navigationBarBackButtonHidden(true)
         .onAppear {
@@ -102,13 +107,9 @@ struct OnlineRoomView: View {
             gameManager.onlineRoom = room
             profileManager.setModelContext(modelContext)
             gameManager.setProfileManager(profileManager)
-            multipeerService.username = username
+            multipeerService.username = displayUsername
             multipeerService.avatarImageName = PlayerAvatars.imageName(for: avatarImageName)
-            Task {
-                if auth.state == .signedOut {
-                    await auth.signInAsGuest()
-                }
-            }
+            Task { await auth.prepareForOnlinePlay() }
         }
         .onChange(of: room.status) { status in
             if status == "playing" && !showGame {
@@ -158,78 +159,70 @@ struct OnlineRoomView: View {
             Spacer()
             Color.clear.frame(width: 44, height: 44)
         }
-        .environment(\.layoutDirection, .leftToRight)
     }
 
     private var createOrJoin: some View {
         VStack(spacing: 14) {
-            Image("camel")
-                .resizable()
-                .scaledToFit()
-                .frame(height: 100)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("كود الغرفة")
+                    .font(.appHeadline)
+                    .foregroundColor(AppTheme.textPrimary)
 
-            primaryButton(
-                "سوّ غرفة وادعِ ربعك",
-                filled: true,
-                isLoading: pendingRoomAction == .create && room.isWorking
-            ) {
-                guard !roomTapLocked, !room.isWorking else { return }
-                roomTapLocked = true
-                pendingRoomAction = .create
-                Task {
-                    await room.create(username: username, avatarImageName: avatarImageName)
-                    pendingRoomAction = nil
-                    roomTapLocked = false
-                }
+                Text("٥ أحرف أو أرقام (إنجليزي — مثل AB12C)")
+                    .font(.appCaption)
+                    .foregroundColor(AppTheme.textSecondary)
+
+                RoomCodeField(code: $codeInput)
+                    .focused($codeFieldFocused)
+                    .onSubmit { tryJoin() }
             }
-
-            Text("أو ادخل بكود صاحبك")
-                .font(.appBody)
-                .foregroundColor(AppTheme.textSecondary)
-
-            TextField("", text: codeBinding, prompt: Text("الكود").foregroundStyle(AppTheme.textSecondary))
-                .font(.system(size: 26, weight: .heavy, design: .monospaced))
-                .foregroundStyle(AppTheme.textPrimary)
-                .tint(AppTheme.accent)
-                .multilineTextAlignment(.center)
-                .textInputAutocapitalization(.characters)
-                .disableAutocorrection(true)
-                .keyboardType(.asciiCapable)
-                .padding(.vertical, 12)
-                .padding(.horizontal, 12)
-                .background(AppTheme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 18))
 
             primaryButton(
                 "ادخل",
-                filled: false,
+                filled: true,
                 isLoading: pendingRoomAction == .join && room.isWorking
             ) {
-                guard !roomTapLocked, !room.isWorking else { return }
-                roomTapLocked = true
-                pendingRoomAction = .join
+                tryJoin()
+            }
+            .disabled(codeInput.count < 5 || room.isWorking || pendingRoomAction != nil)
+            .opacity(codeInput.count < 5 ? 0.5 : 1)
+
+            Text("أو")
+                .font(.appCaption)
+                .foregroundColor(AppTheme.textSecondary)
+                .padding(.top, 4)
+
+            Image("camel")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 88)
+
+            primaryButton(
+                "سوّ غرفة وادعِ ربعك",
+                filled: false,
+                isLoading: pendingRoomAction == .create && room.isWorking
+            ) {
+                guard pendingRoomAction == nil, !room.isWorking else { return }
+                pendingRoomAction = .create
                 Task {
-                    await room.join(code: codeInput, username: username, avatarImageName: avatarImageName)
+                    await auth.prepareForOnlinePlay()
+                    await room.create(username: displayUsername, avatarImageName: avatarImageName)
                     pendingRoomAction = nil
-                    roomTapLocked = false
                 }
             }
-            .disabled(codeInput.count < 5 || room.isWorking || roomTapLocked)
-            .opacity(codeInput.count < 5 ? 0.5 : 1)
+            .disabled(room.isWorking || pendingRoomAction != nil)
         }
-        .disabled(auth.isWorking || auth.state == .loading)
     }
 
-    private var codeBinding: Binding<String> {
-        Binding(
-            get: { codeInput },
-            set: { newValue in
-                let cleaned = String(newValue.uppercased().filter { $0.isLetter || $0.isNumber }.prefix(5))
-                if cleaned != codeInput {
-                    codeInput = cleaned
-                }
-            }
-        )
+    private func tryJoin() {
+        guard codeInput.count == 5, pendingRoomAction == nil, !room.isWorking else { return }
+        codeFieldFocused = false
+        pendingRoomAction = .join
+        Task {
+            await auth.prepareForOnlinePlay()
+            await room.join(code: codeInput, username: displayUsername, avatarImageName: avatarImageName)
+            pendingRoomAction = nil
+        }
     }
 
     private var lobby: some View {
@@ -331,7 +324,7 @@ struct OnlineRoomView: View {
             .cornerRadius(24)
         }
         .buttonStyle(.plain)
-        .disabled(isLoading || roomTapLocked)
+        .disabled(isLoading)
         .opacity(isLoading ? 0.85 : 1)
     }
 }

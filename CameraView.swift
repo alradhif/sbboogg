@@ -14,7 +14,7 @@ struct CameraPreviewView: UIViewControllerRepresentable {
     @Binding var capturedImage: UIImage?
     @Binding var classificationResult: String?
     @Binding var isImageCaptured: Bool
-    @Binding var captureRequestID: Int
+    @Binding var captureTrigger: Bool
     var isLiveDetectionEnabled: Bool = true
 
     @ObservedObject var visionClassifier: VisionClassifier
@@ -174,19 +174,6 @@ struct CameraPreviewView: UIViewControllerRepresentable {
         )
     }
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(captureRequestID: $captureRequestID)
-    }
-
-    final class Coordinator {
-        @Binding var captureRequestID: Int
-        var lastHandledCaptureID = 0
-
-        init(captureRequestID: Binding<Int>) {
-            _captureRequestID = captureRequestID
-        }
-    }
-
     func updateUIViewController(_ uiViewController: CameraViewController, context: Context) {
         uiViewController.targetObject = targetObject
         uiViewController.isLiveDetectionEnabled = isLiveDetectionEnabled && !isImageCaptured
@@ -194,11 +181,12 @@ struct CameraPreviewView: UIViewControllerRepresentable {
             uiViewController.detectionOverlayPublic.boxes = []
             uiViewController.liveDetectorPublic.reset()
         }
-
-        let requestID = captureRequestID
-        guard requestID != context.coordinator.lastHandledCaptureID else { return }
-        context.coordinator.lastHandledCaptureID = requestID
-        uiViewController.capturePhoto()
+        if captureTrigger {
+            uiViewController.capturePhoto()
+            DispatchQueue.main.async {
+                self.captureTrigger = false
+            }
+        }
     }
 }
 
@@ -240,7 +228,6 @@ extension CameraPreviewView.CameraViewController: AVCapturePhotoCaptureDelegate 
 
         visionClassifier.classifyImage(image, targetObject: targetObject) { found, confidence, topText in
             DispatchQueue.main.async {
-                guard self.isImageCaptured.wrappedValue else { return }
                 if found {
                     self.classificationResult.wrappedValue = String(
                         format: NSLocalizedString("Found %@! ✅\n%@", comment: ""),

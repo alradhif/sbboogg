@@ -545,7 +545,7 @@ struct ProfileSettingsSheetView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(hex: "FFCB45")
+                AppTheme.background
                     .ignoresSafeArea()
 
                 VStack(spacing: 24) {
@@ -560,7 +560,7 @@ struct ProfileSettingsSheetView: View {
             }
             .navigationTitle("الإعدادات")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(hex: "FFCB45"), for: .navigationBar)
+            .toolbarBackground(AppTheme.background, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

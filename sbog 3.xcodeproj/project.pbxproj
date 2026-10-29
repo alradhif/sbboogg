@@ -42,6 +42,7 @@
 		FB0000000000000000000A03 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = FB0000000000000000000C02 /* Supabase */; };
 		FB0000000000000000000A04 /* OnlineRoom.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000B04 /* OnlineRoom.swift */; };
 		FB0000000000000000000A05 /* OnlineRoomView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0000000000000000000B05 /* OnlineRoomView.swift */; };
+		RC0D3F13LD5W1FT1N50URC01 /* RoomCodeField.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0D3F13LD5W1FT1N50URC02 /* RoomCodeField.swift */; };
 		G4M3EX1TBTN5W1FT5F1L3R01 /* GameExitConfirmButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */; };
 		L1V3D3T3CT0R5W1FT1N50URC01 /* LiveCameraObjectDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */; };
 		O4P3N41C0NF1G2A3B4C5D6E7 /* OpenAIConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */; };
@@ -98,6 +99,7 @@
 		FB0000000000000000000B02 /* FacebookSignInViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacebookSignInViews.swift; sourceTree = "<group>"; };
 		FB0000000000000000000B04 /* OnlineRoom.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineRoom.swift; sourceTree = "<group>"; };
 		FB0000000000000000000B05 /* OnlineRoomView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineRoomView.swift; sourceTree = "<group>"; };
+		RC0D3F13LD5W1FT1N50URC02 /* RoomCodeField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomCodeField.swift; sourceTree = "<group>"; };
 		G4M3EX1TBTN5W1FT5F1L3R02 /* GameExitConfirmButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameExitConfirmButton.swift; sourceTree = "<group>"; };
 		L1V3D3T3CT0R5W1FT1N50URC02 /* LiveCameraObjectDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraObjectDetector.swift; sourceTree = "<group>"; };
 		O4P3N41C0NF1G2A3B4C5D6E8 /* OpenAIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIConfiguration.swift; sourceTree = "<group>"; };
@@ -166,6 +168,7 @@
 				FB0000000000000000000B02 /* FacebookSignInViews.swift */,
 				FB0000000000000000000B04 /* OnlineRoom.swift */,
 				FB0000000000000000000B05 /* OnlineRoomView.swift */,
+				RC0D3F13LD5W1FT1N50URC02 /* RoomCodeField.swift */,
 				R4C3TR4CKV13W1N50URC3S02 /* RaceTrackView.swift */,
 				S3CR3T5PL1ST1NRES0URC3S02 /* Secrets.plist */,
 				F7A8B9C0D1E2F3A4B5C6D7E8 /* CameraView.swift */,
@@ -338,6 +341,7 @@
 				FB0000000000000000000A02 /* FacebookSignInViews.swift in Sources */,
 				FB0000000000000000000A04 /* OnlineRoom.swift in Sources */,
 				FB0000000000000000000A05 /* OnlineRoomView.swift in Sources */,
+				RC0D3F13LD5W1FT1N50URC01 /* RoomCodeField.swift in Sources */,
 				R4C3TR4CKV13W1N50URC3S01 /* RaceTrackView.swift in Sources */,
 				E5F6A7B8C9D0E1F2A3B4C5D6 /* CameraView.swift in Sources */,
 				L1V3D3T3CT0R5W1FT1N50URC01 /* LiveCameraObjectDetector.swift in Sources */,

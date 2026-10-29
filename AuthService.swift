@@ -52,6 +52,20 @@ final class AuthService: ObservableObject {
         await run { _ = try await supabase.auth.signInAnonymously() }
     }
 
+    /// Ensures Supabase has a session before create/join room RPCs.
+    /// Does not toggle `isWorking` so the room code field stays usable.
+    func prepareForOnlinePlay() async {
+        updateState()
+        guard supabase.auth.currentUser == nil else { return }
+        do {
+            _ = try await supabase.auth.signInAnonymously()
+            updateState()
+        } catch {
+            errorMessage = Self.message(for: error)
+            updateState()
+        }
+    }
+
     func signInWithFacebook() async {
         await run {
             _ = try await supabase.auth.signInWithOAuth(
@@ -90,6 +104,7 @@ final class AuthService: ObservableObject {
     // MARK: - Private
 
     private func listenForAuthChanges() async {
+        updateState()
         for await _ in supabase.auth.authStateChanges {
             updateState()
         }
@@ -117,14 +132,25 @@ final class AuthService: ObservableObject {
     }
 
     private static func message(for error: Error) -> String {
-        let text = String(describing: error)
+        let text = String(describing: error) + " " + (error as NSError).localizedDescription
         if text.contains("identity_already_exists") || text.contains("already linked") {
             return "حساب الفيسبوك هذا مربوط بلاعب ثاني. سجّل دخول بفيسبوك بدل الربط."
         }
         if text.contains("manual_linking_disabled") {
             return "ربط الحسابات مقفل في Supabase. فعّل Manual linking من إعدادات Authentication."
         }
-        return "صار خطأ، حاول مرة ثانية."
+        if text.contains("anonymous") || text.contains("Anonymous") || text.contains("anonymous_provider_disabled") {
+            return "الدخول كضيف مقفل في Supabase. فعّل Anonymous sign-ins من Authentication."
+        }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost, .timedOut:
+                return "ما فيه نت. تأكد من الاتصال وحاول مرة ثانية."
+            default:
+                break
+            }
+        }
+        return "ما قدرنا نسجّل دخولك. جرّب «العب كضيف» أو تأكد من النت."
     }
 }
 

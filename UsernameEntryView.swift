@@ -86,52 +86,24 @@ struct UsernameEntryView: View {
                         )
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .offset(y: 0)
+                    .offset(y: -40)
                     .allowsHitTesting(false)
 
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 20) {
                         Image("camel")
                             .resizable()
                             .scaledToFit()
                             .frame(height: min(geo.size.height * 0.21, 200))
-                            .padding(.top, max(140, geo.size.height * 0.17))
-                            .padding(.bottom, 0)
+                            .padding(.top, max(92, geo.size.height * 0.125))
                             .zIndex(1)
-
-                        VStack(spacing: 10) {
-                            if usernameFromProfile {
-                                Text(username)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(AppTheme.textPrimary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 12)
-                                    .padding(.horizontal, 40)
-                                    .background(AppTheme.surface)
-                                    .cornerRadius(38)
-                            } else {
-                                TextField("أسم السبوق", text: $username)
-                                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                                    .cornerRadius(38)
-                                    .padding(.horizontal, 40)
-                                    .textInputAutocapitalization(.never)
-                                    .disableAutocorrection(true)
-
-                                if username.isEmpty {
-                                    Text("الرجاء إدخال اسم المستخدم")
-                                        .foregroundColor(AppTheme.error)
-                                        .font(.appCaption)
-                                }
-                            }
-                        }
 
                         PlayModeCarouselView(
                             selection: $selectedPlayMode,
                             isInteractionEnabled: !username.isEmpty,
                             onModeActivated: handleModeActivated
                         )
-                        .padding(.top, 4)
+                        .padding(.top, -2)
                         .opacity(username.isEmpty ? 0.45 : 1)
 
                         if isSearching {
@@ -142,10 +114,23 @@ struct UsernameEntryView: View {
                         Spacer(minLength: 12)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.top, 28)
+                    .padding(.top, usernameFromProfile ? 0 : 16)
                     .padding(.bottom, 8)
                     .frame(minHeight: geo.size.height)
                 }
+                .scrollContentBackground(.hidden)
+
+                Image("desertPalm")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: min(geo.size.width * 0.3, 72))
+                    .rotationEffect(.degrees(-25))
+                    .position(
+                        x: geo.size.width * 0.14,
+                        y: geo.size.height * -0.04
+                    )
+                    .allowsHitTesting(false)
+                    .zIndex(2)
             }
             
             if showJoinHint {
@@ -178,6 +163,16 @@ struct UsernameEntryView: View {
         }
         .navigationBarHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let profile = profileManager.currentProfile, !username.isEmpty {
+                usernameMiniStatsHeader(profile: profile)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 2)
+                    .padding(.bottom, 6)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.clear)
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             UsernameEntryBottomBar(
                 profileAvatarName: profileAvatarName,
@@ -252,6 +247,7 @@ struct UsernameEntryView: View {
                 username: username.trimmingCharacters(in: .whitespaces),
                 avatarImageName: profileAvatarName
             )
+            .environment(\.modelContext, modelContext)
         }
         .sheet(isPresented: $showNearbyPicker) {
             NearbyPlayPickerView(
@@ -268,6 +264,129 @@ struct UsernameEntryView: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
+    }
+
+    private func usernameMiniStatsHeader(profile: PlayerProfile) -> some View {
+        let level = ProfileLevel.currentLevel(score: profile.totalScore)
+        let displayName = profile.username.isEmpty ? username : profile.username
+        let starsFilled = miniHeaderStarCount(level: level, score: profile.totalScore)
+
+        return HStack(alignment: .center, spacing: 0) {
+            HStack(alignment: .center, spacing: 12) {
+                levelMedalBadge(level: level)
+                miniLevelStars(filledCount: starsFilled, total: 5)
+            }
+
+            Spacer(minLength: 6)
+
+            profileNameCapsule(displayName: displayName)
+        }
+        .background(Color.clear)
+        .environment(\.layoutDirection, .leftToRight)
+    }
+
+    private func miniHeaderStarCount(level: Int, score: Int) -> Int {
+        let capped = min(max(level, 1), ProfileLevel.maxLevel)
+        if capped >= ProfileLevel.maxLevel, score >= ProfileLevel.maxLevel * ProfileLevel.pointsPerLevel {
+            return 5
+        }
+        return min(capped, 4)
+    }
+
+    private func profileNameCapsule(displayName: String) -> some View {
+        ZStack(alignment: .trailing) {
+            Text(displayName)
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(hex: "4A3228"))
+                .lineLimit(1)
+                .padding(.leading, 24)
+                .padding(.trailing, 72)
+                .padding(.vertical, 9)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "FFFBF3"), Color(hex: "FFF0D4")],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .shadow(color: Color(hex: "B8956A").opacity(0.22), radius: 6, y: 3)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.95), Color(hex: "E8D4B0").opacity(0.5)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            ),
+                            lineWidth: 1
+                        )
+                )
+
+            profileHeaderAvatarRing(size: 70, imageSize: 64)
+                .offset(x: 1)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .offset(x: -14, y: 14)
+    }
+
+    private func profileHeaderAvatarRing(size: CGFloat, imageSize: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "FFE566"), Color(hex: "DDA018")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: size, height: size)
+            Image(profileAvatarName)
+                .resizable()
+                .scaledToFill()
+                .frame(width: imageSize, height: imageSize)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white, lineWidth: 2.5))
+        }
+        .shadow(color: Color(hex: "A67C00").opacity(0.38), radius: 7, y: 4)
+    }
+
+    private func levelMedalBadge(level: Int) -> some View {
+        ZStack {
+            Image("levelRankMedal")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 58, height: 58)
+
+            Text("\(level)")
+                .font(.system(size: 18, weight: .black, design: .rounded))
+                .foregroundStyle(Color(hex: "5C3D2E"))
+                .shadow(color: .white.opacity(0.45), radius: 0, x: 0, y: 1)
+                .offset(y: -4)
+        }
+        .frame(width: 58, height: 58)
+    }
+
+    private func miniLevelStars(filledCount: Int, total: Int = 5) -> some View {
+        HStack(spacing: 4) {
+            ForEach(1...total, id: \.self) { starIndex in
+                Image(systemName: starIndex <= filledCount ? "star.fill" : "star")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(
+                        starIndex <= filledCount
+                            ? Color(hex: "F5A623")
+                            : Color(hex: "D8CFC0")
+                    )
+                    .shadow(
+                        color: starIndex <= filledCount ? Color(hex: "E8941A").opacity(0.35) : .clear,
+                        radius: 2,
+                        y: 1
+                    )
+            }
+        }
+        .padding(.top, 4)
     }
 
     private func handleModeActivated(_ mode: PlayMode) {
@@ -658,9 +777,9 @@ struct PlayModeCarouselView: View {
     private let cardWidth: CGFloat = 178
     private let cardHeight: CGFloat = 212
     /// تداخل بسيط مثل لودو — يبان الكرتان الجانبيان خلف الوسط.
-    private let cardSpacing: CGFloat = -34
+    private let cardSpacing: CGFloat = -39
     /// إزاحة أفقية للكروت (موجب = يمين).
-    private let carouselBiasX: CGFloat = 20
+    private let carouselBiasX: CGFloat = 30
 
     var body: some View {
         GeometryReader { geo in
@@ -851,7 +970,7 @@ private struct PlayModeCardView: View {
 #Preview {
     NavigationStack {
         UsernameEntryView(
-            username: .constant(""),
+            username: .constant("Test"),
             showLobby: .constant(false),
             isHost: .constant(false),
             multipeerService: MultipeerService()
