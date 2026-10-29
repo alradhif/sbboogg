@@ -85,7 +85,14 @@ struct OnlineRoomView: View {
             }
         }
         .fullScreenCover(isPresented: $showGame) {
-            GameView(gameManager: gameManager, multipeerService: multipeerService)
+            GameView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: {
+                    showGame = false
+                    dismiss()
+                }
+            )
         }
     }
 

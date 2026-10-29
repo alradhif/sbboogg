@@ -182,10 +182,18 @@ struct LobbyView: View {
             )
         }
         .fullScreenCover(isPresented: $showGame) {
-            GameView(gameManager: gameManager, multipeerService: multipeerService)
+            GameView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: exitToLobby
+            )
         }
         .fullScreenCover(isPresented: $showLeaderboard) {
-            LeaderboardView(gameManager: gameManager, multipeerService: multipeerService)
+            LeaderboardView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: exitToLobby
+            )
         }
         .onChange(of: multipeerService.pendingInvitations.count) { count in
             if count > 0 && !isHost {
@@ -206,6 +214,15 @@ struct LobbyView: View {
         }
     }
     
+    /// نفس خروج شاشة العد التنازلي: نقفل الشاشات ونرجع للوبي.
+    private func exitToLobby() {
+        showGame = false
+        showLeaderboard = false
+        multipeerService.stop()
+        gameManager.resetForLobby()
+        setupLobby()
+    }
+
     private var headerSection: some View {
         HStack {
             // Back button
