@@ -161,7 +161,7 @@ struct GameView: View {
                     RaceTrackView(
                         players: gameManager.players,
                         maxScore: gameManager.maxPossibleScore,
-                        myPeerID: multipeerService.myPeerID.displayName
+                        myPeerID: gameManager.myPlayerKey
                     )
                     .padding(.horizontal, 20)
 
@@ -192,7 +192,11 @@ struct GameView: View {
             if ended { showLeaderboard = true }
         }
         .fullScreenCover(isPresented: $showLeaderboard) {
-            LeaderboardView(gameManager: gameManager, multipeerService: multipeerService)
+            LeaderboardView(
+                gameManager: gameManager,
+                multipeerService: multipeerService,
+                onExitGame: onExitGame
+            )
         }
         .onAppear {
             BackgroundMusicManager.shared.startBackgroundMusic()
@@ -232,6 +236,18 @@ struct GameView: View {
         if found {
             hasReportedFind = true
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            if let room = gameManager.onlineRoom {
+                // Online: the server decides the points (first finder, round type, pen bonus).
+                Task { @MainActor in
+                    let points = await room.submitFind(label: challenge.objectName, confidence: confidence)
+                    if let points {
+                        classificationResult = "صح! \(arabicName(for: challenge.objectName))\n+\(points) نقطة"
+                    } else {
+                        classificationResult = "الشوط خلص قبل ما توصل لقطتك."
+                    }
+                }
+                return
+            }
             let points = gameManager.submitObjectFound(found: true, confidence: confidence) ?? 0
             classificationResult = "صح! \(arabicName(for: challenge.objectName))\n\(detail)\n+\(points) نقطة"
         } else {
@@ -244,6 +260,9 @@ struct GameView: View {
         visionClassifier.cancelPending()
         multipeerService.stop()
         BackgroundMusicManager.shared.stopBackgroundMusic()
+        if let room = gameManager.onlineRoom {
+            Task { await room.leave() }
+        }
         onExitGame()
     }
 

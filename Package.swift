@@ -13,11 +13,15 @@ let package = Package(
             name: "sbog",
             targets: ["sbog"]),
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/supabase/supabase-swift.git", from: "2.0.0"),
+    ],
     targets: [
         .target(
             name: "sbog",
-            dependencies: []),
+            dependencies: [
+                .product(name: "Supabase", package: "supabase-swift"),
+            ]),
     ]
 )
 

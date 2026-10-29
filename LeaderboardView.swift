@@ -12,40 +12,30 @@ import AVFoundation
 struct LeaderboardView: View {
     @ObservedObject var gameManager: GameManager
     @ObservedObject var multipeerService: MultipeerService
+    var onExitGame: () -> Void
     @Environment(\.modelContext) private var modelContext
     @StateObject private var profileManager = ProfileManager()
-    @State private var navigateToUsernameEntry = false
     @State private var animateHero = false
-    @Environment(\.dismiss) private var dismiss
+    @State private var heroAnimationStarted = false
 
     private var winner: Player? {
         gameManager.leaderboard.first
     }
 
-    private var runnersUp: [Player] {
-        Array(gameManager.leaderboard.dropFirst())
-    }
-
-    private var currentPlayer: Player? {
-        gameManager.leaderboard.first(where: { $0.username == multipeerService.username })
-    }
-
-    private var currentPlayerRank: Int? {
-        gameManager.leaderboard.firstIndex(where: { $0.username == multipeerService.username }).map { $0 + 1 }
-    }
-
-    private var displayNameForLoser: String? {
-        if let username = currentPlayer?.username {
-            return username
+    private var me: Player? {
+        let key = gameManager.myPlayerKey
+        if let byKey = gameManager.leaderboard.first(where: { $0.peerID == key }) {
+            return byKey
         }
-        let username = multipeerService.username
-        return username.isEmpty ? nil : username
+        // الضيف قد يضيف لاعبين من رسالة النهاية بدون peerID
+        guard !gameManager.isOnline, !multipeerService.username.isEmpty else { return nil }
+        return gameManager.leaderboard.first(where: { $0.username == multipeerService.username })
     }
 
+    /// التعادل على أعلى نقاط يُحسب فوز للكل.
     private var userIsWinner: Bool {
-        guard !multipeerService.username.isEmpty,
-              let first = gameManager.leaderboard.first else { return false }
-        return first.username == multipeerService.username
+        guard let top = gameManager.leaderboard.first, let me else { return false }
+        return me.score == top.score
     }
 
     var body: some View {
@@ -54,7 +44,7 @@ struct LeaderboardView: View {
                 .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 9) {
                     headerBar
                         .padding(.horizontal, 20)
                         .padding(.top, 16)
@@ -77,7 +67,7 @@ struct LeaderboardView: View {
                             .clipShape(Capsule())
                     }
                     .padding(.horizontal, 32)
-                    .padding(.top, 24)
+                    .padding(.top, 7)
                     .padding(.bottom, 32)
                 }
                 .frame(maxWidth: .infinity)
@@ -96,33 +86,14 @@ struct LeaderboardView: View {
         }
         .onDisappear {
             SoundManager.stopAudio()
-        }
-        .fullScreenCover(isPresented: $navigateToUsernameEntry) {
-            NavigationView {
-                UsernameEntryView(
-                    username: .constant(""),
-                    showLobby: .constant(false),
-                    isHost: .constant(false),
-                    multipeerService: MultipeerService()
-                )
-            }
+            heroAnimationStarted = false
+            animateHero = false
         }
     }
 
     private var headerBar: some View {
         HStack {
-            Button {
-                goToUsernameEntry()
-            } label: {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(AppTheme.accent)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-            }
-
+            GameExitConfirmButton(onConfirm: goToUsernameEntry)
             Spacer()
         }
     }
@@ -154,141 +125,315 @@ struct LeaderboardView: View {
         Image(name)
             .resizable()
             .scaledToFit()
-            .frame(maxWidth: 280, maxHeight: 240)
-            .shadow(radius: 10)
+            .frame(maxWidth: 220, maxHeight: 200)
+            .shadow(radius: 8)
             .rotation3DEffect(
-                Angle(degrees: animateHero ? 180 : 0),
+                Angle(degrees: animateHero ? 12 : -12),
                 axis: (x: 0.0, y: 1.0, z: 0.0)
             )
             .padding(.top, 8)
-            .onAppear {
-                animateHero = false
-                withAnimation(.interpolatingSpring(stiffness: 30, damping: 3).repeatForever()) {
-                    animateHero.toggle()
-                }
-            }
+            .onAppear { startHeroAnimationIfNeeded() }
+    }
+
+    private func startHeroAnimationIfNeeded() {
+        guard !heroAnimationStarted else { return }
+        heroAnimationStarted = true
+        animateHero = false
+        withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+            animateHero = true
+        }
     }
 
     private var winnerContent: some View {
         Group {
-            sabouqTitle
+            VStack(spacing: 0) {
+                animatedHeroImage(name: "winnerImage")
+                    .scaleEffect(2.45)
+                    .frame(height: 65)
 
-            animatedHeroImage(name: "winnerImage")
-
-            if let winner {
-                winnerBanner(name: winner.username)
-                    .padding(.top, 4)
+                sabouqTitle
+                    .padding(.top, 30)
+                    .padding(.bottom, 0)
             }
 
-            rankingsList(players: runnersUp, startRank: 2)
+            RaceFinishView(
+                players: gameManager.leaderboard,
+                myUsername: multipeerService.username,
+                myPeerID: gameManager.myPlayerKey
+            )
+            .padding(.top, 0)
+
+            if !gameManager.leaderboard.isEmpty {
+                standingsList
+            }
         }
     }
 
     private var loserContent: some View {
         Group {
-            maoudKhairTitle
+            VStack(spacing: 0) {
+                animatedHeroImage(name: "loserImage")
+                    .scaleEffect(2.45)
+                    .frame(height: 65)
 
-            animatedHeroImage(name: "loserImage")
-
-            if let winner {
-                winnerBanner(name: winner.username)
-                    .padding(.top, 4)
+                maoudKhairTitle
+                    .padding(.top, 30)
+                    .padding(.bottom, 0)
             }
 
-            if let name = displayNameForLoser, let rank = currentPlayerRank, rank > 1 {
-                loserRankRow(name: name, rank: rank)
-                    .padding(.top, 12)
+            if gameManager.leaderboard.count > 1 {
+                RaceFinishView(
+                    players: gameManager.leaderboard,
+                    myUsername: multipeerService.username,
+                    myPeerID: gameManager.myPlayerKey
+                )
+                .padding(.top, 0)
             }
-        }
-    }
 
-    private func loserRankRow(name: String, rank: Int) -> some View {
-        HStack(spacing: 16) {
-            Text(name)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
-                .lineLimit(1)
-
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "FFF5E3"))
-                    .frame(width: 50, height: 50)
-                Text(arabicNumeral(rank))
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
+            if !gameManager.leaderboard.isEmpty {
+                standingsList
             }
         }
-        .frame(maxWidth: .infinity, alignment: .center)
     }
 
-    @ViewBuilder
-    private func rankingsList(players: [Player], startRank: Int) -> some View {
-        if players.isEmpty {
-            Text("لايوجد نتائج")
-                .font(.headline)
-                .foregroundColor(AppTheme.textPrimary)
-                .padding(.top, 12)
-        } else {
-            VStack(spacing: 18) {
-                ForEach(Array(players.enumerated()), id: \.element.id) { index, player in
-                    runnerUpRow(player: player, rank: startRank + index)
-                }
+    private var standingsList: some View {
+        VStack(spacing: 6) {
+            ForEach(gameManager.leaderboard) { player in
+                let index = gameManager.leaderboard.firstIndex(where: { $0.id == player.id }) ?? 0
+                standingsRow(player: player, index: index)
             }
-            .padding(.top, 12)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 0)
     }
 
-    private func winnerBanner(name: String) -> some View {
-        nameRibbonBanner(name: name)
-    }
+    private func standingsRow(player: Player, index: Int) -> some View {
+        HStack(spacing: 8) {
+            Text("\(index + 1)")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color(hex: "8B342C"))
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle().fill(
+                        Color(hex:
+                            index == 0 ? "FFD34F" :
+                            index == 1 ? "BDB0A0" : "B58A50"
+                        )
+                    )
+                )
 
-    private func nameRibbonBanner(name: String) -> some View {
-        ZStack {
-            Image("Ribbon")
+            Image(PlayerAvatars.imageName(for: player.avatarImageName))
                 .resizable()
-                .scaledToFit()
-                .frame(maxWidth: 280, maxHeight: 80)
+                .scaledToFill()
+                .frame(width: 38, height: 38)
+                .clipShape(Circle())
 
-            Text(name)
-                .font(.system(size: 22, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .padding(.horizontal, 28)
-                .offset(y: -12)
-        }
-        .shadow(color: Color.black.opacity(0.1), radius: 4, y: 2)
-    }
-
-    private func runnerUpRow(player: Player, rank: Int) -> some View {
-        HStack(spacing: 16) {
             Text(player.username)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(AppTheme.textPrimary)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(Color(hex: "352015"))
                 .lineLimit(1)
 
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "FFF5E3"))
-                    .frame(width: 50, height: 50)
-                Text(arabicNumeral(rank))
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(AppTheme.textPrimary)
-            }
+            Spacer(minLength: 4)
+
+            Text("\(player.score) نقطة")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundColor(Color(hex: "8B342C"))
         }
-        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color(hex: "FFF5E5"))
+        )
+        .environment(\.layoutDirection, .rightToLeft)
     }
 
     private func goToUsernameEntry() {
+        SoundManager.stopAudio()
         multipeerService.stop()
         BackgroundMusicManager.shared.stopBackgroundMusic()
-        navigateToUsernameEntry = true
+        onExitGame()
+    }
+}
+
+/// خط النهاية: كل لاعب في مسار، والفائز يوصل أول.
+struct RaceFinishView: View {
+    let players: [Player]
+    let myUsername: String
+    var myPeerID: String = ""
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: CGFloat = 0
+
+    private func matchesPlayer(_ player: Player) -> Bool {
+        if !myPeerID.isEmpty { return player.peerID == myPeerID }
+        return player.username == myUsername
     }
 
-    private func arabicNumeral(_ value: Int) -> String {
+    private let trackHeight: CGFloat = 160
+    private let tokenSize: CGFloat = 46
+
+    private var topScore: Int {
+        players.map(\.score).max() ?? 0
+    }
+
+    private var ranks: [String: Int] {
+        var result: [String: Int] = [:]
+        for (index, player) in players.enumerated() {
+            if index > 0, players[index - 1].score == player.score {
+                result[player.username] = result[players[index - 1].username]
+            } else {
+                result[player.username] = index + 1
+            }
+        }
+        return result
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("خط النهاية")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(AppTheme.textPrimary)
+                .padding(.bottom, 6)
+
+            finishLine
+                .frame(height: 12)
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+
+            HStack(alignment: .top, spacing: 8) {
+                let rankMap = ranks
+                ForEach(Array(players.enumerated()), id: \.element.id) { index, player in
+                    lane(
+                        for: player,
+                        rank: rankMap[player.username] ?? index + 1,
+                        delay: Double(index) * 0.15
+                    )
+                }
+            }
+            .environment(\.layoutDirection, .rightToLeft)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "FFE7B0"), Color(hex: "F3CF8A")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+        )
+        .shadow(color: Color.black.opacity(0.1), radius: 6, y: 3)
+        .padding(.horizontal, 24)
+        .onAppear {
+            if reduceMotion {
+                progress = 1
+            } else {
+                progress = 0
+                withAnimation(.spring(response: 1.6, dampingFraction: 0.85).delay(0.4)) {
+                    progress = 1
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private func lane(for player: Player, rank: Int, delay: Double) -> some View {
+        let isMe = matchesPlayer(player)
+        let fraction: CGFloat = topScore > 0
+            ? CGFloat(player.score) / CGFloat(topScore)
+            : 0
+        let travel = (trackHeight - tokenSize) * fraction * progress
+
+        return VStack(spacing: 6) {
+            ZStack(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.55))
+                    .frame(width: 3)
+                    .frame(maxHeight: .infinity)
+
+                token(for: player, rank: rank, isMe: isMe)
+                    .offset(y: -travel)
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 1.6, dampingFraction: 0.85).delay(delay),
+                        value: progress
+                    )
+            }
+            .frame(height: trackHeight)
+            .frame(maxWidth: .infinity)
+
+            Text(player.username)
+                .font(.system(size: 13, weight: isMe ? .heavy : .semibold))
+                .foregroundColor(isMe ? AppTheme.accent : AppTheme.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+
+            Text("\(Self.arabicNumeral(player.score)) نقطة")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(AppTheme.textPrimary.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func token(for player: Player, rank: Int, isMe: Bool) -> some View {
+        Image(PlayerAvatars.imageName(for: player.avatarImageName))
+            .resizable()
+            .scaledToFill()
+            .frame(width: tokenSize, height: tokenSize)
+            .clipShape(Circle())
+            .overlay(
+                Circle().stroke(isMe ? Color.green : Color.white, lineWidth: isMe ? 3 : 2)
+            )
+            .overlay(alignment: .top) {
+                Text(rank == 1 ? "👑" : Self.arabicNumeral(rank))
+                    .font(.system(size: rank == 1 ? 18 : 12, weight: .heavy))
+                    .foregroundColor(AppTheme.accent)
+                    .frame(minWidth: 20, minHeight: 20)
+                    .background(rank == 1 ? Color.clear : Color.white)
+                    .clipShape(Circle())
+                    .offset(y: -14)
+            }
+            .shadow(color: Color.black.opacity(0.15), radius: 3, y: 2)
+    }
+
+    private var finishLine: some View {
+        Canvas { context, size in
+            let square: CGFloat = 6
+            let columns = Int(ceil(size.width / square))
+            let rows = Int(ceil(size.height / square))
+            for row in 0..<rows {
+                for column in 0..<columns where (row + column).isMultiple(of: 2) {
+                    let rect = CGRect(
+                        x: CGFloat(column) * square,
+                        y: CGFloat(row) * square,
+                        width: square,
+                        height: square
+                    )
+                    context.fill(Path(rect), with: .color(AppTheme.textPrimary))
+                }
+            }
+        }
+        .background(Color.white)
+    }
+
+    private var accessibilitySummary: String {
+        let rankMap = ranks
+        return players
+            .map { "\($0.username): المركز \(rankMap[$0.username] ?? 0)، \($0.score) نقطة" }
+            .joined(separator: "، ")
+    }
+
+    private static let arabicFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "ar")
-        return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
+        return formatter
+    }()
+
+    private static func arabicNumeral(_ value: Int) -> String {
+        arabicFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 }
 
@@ -316,7 +461,8 @@ class SoundManager {
 #Preview {
     LeaderboardView(
         gameManager: GameManager(multipeerService: MultipeerService()),
-        multipeerService: MultipeerService()
+        multipeerService: MultipeerService(),
+        onExitGame: {}
     )
     .modelContainer(
         for: [Player.self, GameSession.self, PlayerProfile.self],

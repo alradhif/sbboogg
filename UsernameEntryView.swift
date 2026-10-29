@@ -137,6 +137,24 @@ struct UsernameEntryView: View {
                             }
                             .disabled(username.isEmpty)
                             .padding(.horizontal, 32)
+
+                            NavigationLink {
+                                OnlineRoomView(
+                                    username: username.trimmingCharacters(in: .whitespaces),
+                                    avatarImageName: profileAvatarName
+                                )
+                            } label: {
+                                Label("العب أونلاين مع ربعك البعيدين", systemImage: "globe")
+                                    .font(.appHeadline)
+                                    .foregroundColor(AppTheme.accent)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(AppTheme.surface)
+                                    .cornerRadius(24)
+                                    .overlay(RoundedRectangle(cornerRadius: 24).stroke(AppTheme.accent.opacity(0.3), lineWidth: 2))
+                            }
+                            .disabled(username.isEmpty)
+                            .padding(.horizontal, 32)
                         }
                         .padding(.top, 10)
 
@@ -219,7 +237,7 @@ struct UsernameEntryView: View {
     
     func startAsHost() {
         guard !username.isEmpty else { return }
-        let profile = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
+        let profile = profileManager.getOrCreateLocalProfile(username: username.trimmingCharacters(in: .whitespaces))
         isHost = true
         multipeerService.startHosting(
             username: username.trimmingCharacters(in: .whitespaces),
@@ -230,7 +248,7 @@ struct UsernameEntryView: View {
     
     func startAsGuest() {
         guard !username.isEmpty else { return }
-        let profile = profileManager.getOrCreateProfile(username: username.trimmingCharacters(in: .whitespaces))
+        let profile = profileManager.getOrCreateLocalProfile(username: username.trimmingCharacters(in: .whitespaces))
         isHost = false
         isSearching = true
         multipeerService.startBrowsing(
