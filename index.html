@@ -45,7 +45,13 @@ svg{display:block}
 .nav{height:56px;display:flex;align-items:center;justify-content:space-between}
 .wordmark{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600;text-decoration:none}
 .glyph{width:26px;height:18px;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:1fr 1fr .8fr;gap:1.5px;direction:ltr;grid-template-areas:"a b c d e" "a f c g e" "h h i i i"}
-.glyph i{background:var(--ink);border-radius:1.5px;opacity:.85}
+.glyph i{border-radius:1.5px}
+/* logo colours: one hue per canvas region (partners/activities/resources · value · customers · costs · revenue) */
+.glyph i:nth-child(1),.glyph i:nth-child(2),.glyph i:nth-child(6){background:#5B6CFF}
+.glyph i:nth-child(3){background:#EC4F8C}
+.glyph i:nth-child(4),.glyph i:nth-child(5),.glyph i:nth-child(7){background:#F4A42A}
+.glyph i:nth-child(8){background:#F2665B}
+.glyph i:nth-child(9){background:#14B39A}
 .glyph i:nth-child(1){grid-area:a}.glyph i:nth-child(2){grid-area:b}.glyph i:nth-child(3){grid-area:c}.glyph i:nth-child(4){grid-area:d}.glyph i:nth-child(5){grid-area:e}
 .glyph i:nth-child(6){grid-area:f}.glyph i:nth-child(7){grid-area:g}.glyph i:nth-child(8){grid-area:h}.glyph i:nth-child(9){grid-area:i}
 .net{font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:7px}
