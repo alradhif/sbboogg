@@ -351,7 +351,9 @@ function ago(iso){
 
 /* ===== Identity (stored on this device) ===== */
 const ME=(()=>{ let m=null; try{ m=JSON.parse(localStorage.getItem("bmc-me")||"null"); }catch(e){}
-  if(!m||!m.id) m={id:Math.random().toString(36).slice(2,10), name:"", color:PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)]};
+  const newId=()=>Array.from(crypto.getRandomValues(new Uint8Array(10)),b=>"abcdefghijklmnopqrstuvwxyz0123456789"[b%36]).join("");
+  if(!m||typeof m!=="object") m={name:"",color:PEOPLE_COLORS[Math.floor(Math.random()*PEOPLE_COLORS.length)]};
+  if(!/^[a-z0-9]{6,16}$/.test(m.id||"")) m.id=newId();
   return m; })();
 const saveMe=()=>{ try{ localStorage.setItem("bmc-me",JSON.stringify(ME)); }catch(e){} };
 saveMe();
@@ -377,7 +379,7 @@ function mergeNotes(base,mine,theirs){
 }
 
 /* ===== State ===== */
-const S={rows:new Map(),loaded:false,online:null,room:null,filter:"all",pending:undefined,skipHash:false,people:[],cell:null};
+const S={rows:new Map(),loaded:false,online:null,room:null,filter:"all",pending:undefined,skipHash:false,people:[],cell:null,onlineRooms:new Map()};
 const draftKey=id=>`bmc4-draft-${id}`;
 const saveLocal=()=>{ try{ const r=S.room; localStorage.setItem(draftKey(r.id),JSON.stringify({base:r.base,draft:r.draft})); }catch(e){} };
 const loadLocal=id=>{ try{ return JSON.parse(localStorage.getItem(draftKey(id))||"null"); }catch(e){ return null; } };
@@ -393,52 +395,65 @@ function toast(t,s="",kind="ok",ms=3600){
   clearTimeout(tt); if(ms) tt=setTimeout(()=>el.classList.remove("show"),ms);
 }
 
-/* ===== Live presence & cursors (Supabase Realtime) ===== */
+/* ===== Live presence & cursors =====
+   Built to stay inside Supabase's free-plan Realtime limits with 100 people online
+   (100 messages/s, 20 presence messages/s, 5 presence updates per person per 30 s):
+   - Home-page room counts come from a database heartbeat, not a live channel.
+   - Each room has its own small channel (about 5 people), so updates only reach teammates.
+   - Presence updates are throttled; cursors are only sent when teammates are present,
+     and their rate adapts to how many computers are online so the total stays in budget. */
+const REALTIME_BUDGET = 60;          // messages/second for cursors. Free plan limit is 100; set ~400 on the Pro plan.
+const PRESENCE_MIN_GAP = 15000;      // ms between presence updates per person (limit: 5 per 30 s)
+const HEARTBEAT_EVERY = 30000;       // ms
+const IS_DESKTOP = matchMedia("(hover: hover) and (pointer: fine)").matches;
+
 const loadedScripts={};
 const loadScript=src=>loadedScripts[src]||(loadedScripts[src]=new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>{delete loadedScripts[src];rej(new Error(src));};document.head.appendChild(s);}));
-const RT={sb:null,lobby:null,room:null,roomId:null,ready:false};
+const RT={sb:null,room:null,roomId:null,joined:false,desktops:1,lastTrack:0,trackTimer:null};
 
 async function initRealtime(){
   try{
     await loadScript("assets/vendor/supabase.js");
-    RT.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},realtime:{params:{eventsPerSecond:25}}});
-    RT.lobby=RT.sb.channel("bmc-lobby",{config:{presence:{key:ME.id}}});
-    RT.lobby.on("presence",{event:"sync"},()=>{
-      const st=RT.lobby.presenceState(); const now=[];
-      for(const [key,metas] of Object.entries(st)){ const m=metas[metas.length-1]; if(m) now.push({...m,id:key}); }
-      S.people=now; onPeople();
-    });
-    RT.lobby.subscribe(st=>{ if(st==="SUBSCRIBED"){ RT.ready=true; track(); } });
+    RT.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false},realtime:{params:{eventsPerSecond:10}}});
     if(S.room) joinRoom(S.room.id);
-  }catch(e){ console.warn("Realtime unavailable",e); }
+  }catch(e){ console.warn("Live features unavailable",e); }
 }
-let trackT;
-function track(){ clearTimeout(trackT); trackT=setTimeout(()=>{ if(RT.ready) RT.lobby.track({name:ME.name||"",color:ME.color,room:S.room?.id||null,cell:S.room?S.cell:null}).catch(()=>{}); },120); }
 function joinRoom(id){
   if(!RT.sb) return;
   if(RT.room){ RT.sb.removeChannel(RT.room); RT.room=null; }
-  clearCursors(); RT.roomId=id;
-  RT.room=RT.sb.channel(`bmc-room-${id}`,{config:{broadcast:{self:false}}});
-  RT.room.on("broadcast",{event:"cursor"},({payload})=>moveCursor(payload));
-  RT.room.on("broadcast",{event:"saved"},({payload})=>onTeammateSaved(payload));
-  RT.room.subscribe();
-  track();
+  clearCursors(); S.people=[]; RT.roomId=id; RT.joined=false; RT.lastTrack=0;
+  const ch=RT.sb.channel(`bmc-room-${id}`,{config:{broadcast:{self:false},presence:{key:ME.id}}});
+  ch.on("presence",{event:"sync"},()=>{
+    if(RT.room!==ch) return;
+    const st=ch.presenceState(), now=[];
+    for(const [key,metas] of Object.entries(st)){ const m=metas[metas.length-1]; if(m) now.push({...m,id:key}); }
+    S.people=now; onPeople();
+  });
+  ch.on("broadcast",{event:"cursor"},({payload})=>moveCursor(payload));
+  ch.on("broadcast",{event:"saved"},({payload})=>onTeammateSaved(payload));
+  ch.subscribe(st=>{ if(st==="SUBSCRIBED"&&RT.room===ch){ RT.joined=true; track(true); } });
+  RT.room=ch;
 }
-function leaveRoom(){ if(RT.room&&RT.sb){ RT.sb.removeChannel(RT.room); } RT.room=null; RT.roomId=null; clearCursors(); S.cell=null; track(); }
-function send(event,payload){ if(RT.room) RT.room.send({type:"broadcast",event,payload}).catch(()=>{}); }
+function leaveRoom(){ if(RT.room&&RT.sb) RT.sb.removeChannel(RT.room); RT.room=null; RT.roomId=null; RT.joined=false; S.people=[]; clearCursors(); S.cell=null; }
+// throttled presence: never more than one update per PRESENCE_MIN_GAP; the latest state always wins
+function track(now=false){
+  if(!RT.room||!RT.joined) return;
+  clearTimeout(RT.trackTimer);
+  const wait=now?0:Math.max(0,RT.lastTrack+PRESENCE_MIN_GAP-Date.now());
+  RT.trackTimer=setTimeout(()=>{ if(!RT.room||!RT.joined) return; RT.lastTrack=Date.now();
+    RT.room.track({name:ME.name||"",color:ME.color,cell:S.cell||null}).catch(()=>{}); },wait);
+}
+function send(event,payload){ if(RT.room&&RT.joined) RT.room.send({type:"broadcast",event,payload}).catch(()=>{}); }
 const others=()=>S.people.filter(p=>p.id!==ME.id);
 function onPeople(){
-  if(S.room){
-    const el=$(".people"); if(el) el.outerHTML=peopleHTML();
-    document.querySelectorAll(".typing").forEach(t=>{ t.innerHTML=typingHTML(t.dataset.cell); });
-    const ids=new Set(others().filter(p=>p.room===S.room.id).map(p=>p.id));
-    for(const [id,c] of cursors) if(!ids.has(id)){ c.el.remove(); cursors.delete(id); }
-  } else {
-    document.querySelectorAll("[data-here]").forEach(el=>{ const n=others().filter(p=>p.room===+el.dataset.here).length; el.innerHTML=n?`<i></i>${n} في الغرفة`:""; });
-  }
+  if(!S.room) return;
+  const el=$(".people"); if(el) el.outerHTML=peopleHTML();
+  document.querySelectorAll(".typing").forEach(t=>{ t.innerHTML=typingHTML(t.dataset.cell); });
+  const ids=new Set(others().map(p=>p.id));
+  for(const [id,c] of cursors) if(!ids.has(id)){ c.el.remove(); cursors.delete(id); }
 }
 function peopleHTML(){
-  const here=S.people.filter(p=>p.room===S.room.id);
+  const here=[...S.people];
   if(!here.some(p=>p.id===ME.id)) here.unshift({id:ME.id,name:ME.name,color:ME.color});
   const shown=here.slice(0,5), extra=here.length-shown.length;
   const label = here.length>1 ? `${here.length} في الغرفة` : "";
@@ -448,11 +463,37 @@ function peopleHTML(){
 }
 function typingHTML(a){
   if(!S.room) return "";
-  return others().filter(p=>p.room===S.room.id&&p.cell===a).map(p=>`<span style="--pc:${p.color}">${esc(p.name||"زائر")} يكتب</span>`).join("");
+  return others().filter(p=>p.cell===a).map(p=>`<span style="--pc:${p.color}">${esc(p.name||"زائر")} يكتب</span>`).join("");
 }
-function setCell(a){ if(S.cell===a) return; S.cell=a; track(); }
+let cellTimer;
+function setCell(a){ clearTimeout(cellTimer); cellTimer=setTimeout(()=>{ if(S.cell===a) return; S.cell=a; track(); }, a?1200:300); }
 
-/* cursors: positions are relative to a canvas block, so they line up on any screen size */
+/* Heartbeat → powers the "N in the room" counts on the home page and the cursor budget */
+async function heartbeat(){
+  if(document.hidden) return;
+  try{
+    await api("rpc/bmc_heartbeat",{method:"POST",body:JSON.stringify({p_client:ME.id,p_room:S.room?.id||null,p_desktop:IS_DESKTOP})});
+    await refreshOnline();
+  }catch(e){}
+}
+async function refreshOnline(){
+  try{
+    const rows=await api("rpc/bmc_online",{method:"POST",body:"{}"});
+    S.onlineRooms=new Map(rows.filter(r=>r.room).map(r=>[r.room,r.people]));
+    RT.desktops=Math.max(1,rows.reduce((s,r)=>s+r.desktops,0));
+    if(!S.room) document.querySelectorAll("[data-here]").forEach(el=>{ const n=S.onlineRooms.get(+el.dataset.here)||0; el.innerHTML=n?`<i></i>${n} في الغرفة`:""; });
+  }catch(e){}
+}
+setInterval(heartbeat,HEARTBEAT_EVERY);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) heartbeat(); });
+
+/* Cursors: positions are relative to a canvas block, so they line up on any screen size.
+   Send interval adapts so that (computers online × people per room × rate) stays within REALTIME_BUDGET. */
+function cursorInterval(){
+  const peers=others().length; if(!peers) return Infinity;           // alone in the room → send nothing
+  const ms=1000*RT.desktops*(peers+1)/REALTIME_BUDGET;
+  return Math.min(8000,Math.max(80,ms));
+}
 const cursors=new Map();
 const CURSOR_SVG='<svg viewBox="0 0 24 24"><path d="M4 2l16 10.5-7 1.6-3.6 6.4z" fill="currentColor" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 function moveCursor(p){
@@ -465,28 +506,35 @@ function moveCursor(p){
     c={el,data:p}; cursors.set(p.id,c);
   }
   c.data=p; c.el.style.color=p.color; c.el.style.setProperty("--pc",p.color); c.el.querySelector("span").textContent=p.name||"زائر";
+  c.el.style.transitionDuration=`${Math.min(1200,p.iv||90)}ms, .2s`;   // glide smoothly between slower updates
   c.el.classList.remove("gone"); placeCursor(c);
-  clearTimeout(c.timer); c.timer=setTimeout(()=>c.el.classList.add("gone"),8000);
+  clearTimeout(c.timer); c.timer=setTimeout(()=>c.el.classList.add("gone"),Math.max(8000,(p.iv||0)*3));
 }
 function placeCursor(c){
   const cell=$(`#cell-${c.data.cell}`); if(!cell){ c.el.classList.add("gone"); return; }
   const r=cell.getBoundingClientRect();
-  const x=r.left+scrollX+c.data.x*r.width, y=r.top+scrollY+c.data.y*r.height;
-  c.el.style.transform=`translate(${x}px,${y}px)`;
+  c.el.style.transform=`translate(${r.left+scrollX+c.data.x*r.width}px,${r.top+scrollY+c.data.y*r.height}px)`;
 }
 function clearCursors(){ cursors.forEach(c=>c.el.remove()); cursors.clear(); }
 addEventListener("resize",()=>cursors.forEach(placeCursor));
-let lastSend=0, pendingMove=null;
+let lastSend=0, lastSent=null, latest=null, sendTimer=null;
+function flushCursor(){
+  sendTimer=null; if(!latest) return;
+  const same=lastSent&&latest.cell===lastSent.cell&&Math.abs(latest.x-lastSent.x)<.005&&Math.abs(latest.y-lastSent.y)<.005;
+  if(same) return;
+  const iv=cursorInterval(); if(iv===Infinity) return;
+  lastSend=performance.now(); lastSent=latest; send("cursor",{...latest,iv:Math.round(iv)});
+}
 document.addEventListener("pointermove",e=>{
   if(!S.room||e.pointerType!=="mouse") return;
   const cell=e.target.closest?.(".cell");
-  const now=performance.now();
-  const payload= cell ? (()=>{ const r=cell.getBoundingClientRect(); return {id:ME.id,name:ME.name,color:ME.color,cell:cell.dataset.a,x:+((e.clientX-r.left)/r.width).toFixed(4),y:+((e.clientY-r.top)/r.height).toFixed(4)}; })()
-                      : {id:ME.id,cell:null};
-  if(now-lastSend>45){ lastSend=now; send("cursor",payload); }
-  else { clearTimeout(pendingMove); pendingMove=setTimeout(()=>{ lastSend=performance.now(); send("cursor",payload); },50); }
+  if(cell){ const r=cell.getBoundingClientRect(); latest={id:ME.id,name:ME.name,color:ME.color,cell:cell.dataset.a,x:+((e.clientX-r.left)/r.width).toFixed(4),y:+((e.clientY-r.top)/r.height).toFixed(4)}; }
+  else latest={id:ME.id,cell:null,x:0,y:0};
+  if(sendTimer) return;
+  const iv=cursorInterval(); if(iv===Infinity) return;
+  sendTimer=setTimeout(flushCursor,Math.max(0,lastSend+iv-performance.now()));
 },{passive:true});
-document.addEventListener("mouseleave",()=>send("cursor",{id:ME.id,cell:null}));
+document.addEventListener("mouseleave",()=>{ if(lastSent&&lastSent.cell){ latest={id:ME.id,cell:null,x:0,y:0}; if(!sendTimer) flushCursor(); } });
 
 /* ===== Home ===== */
 function renderHome(){
@@ -512,8 +560,9 @@ function renderHome(){
       ${shown.length?shown.map(card).join(""):`<p class="none">لا توجد مشاريع هنا الآن.</p>`}
     </section>
   </div>`;
-  onPeople();
+  refreshOnlineBadges();
 }
+function refreshOnlineBadges(){ document.querySelectorAll("[data-here]").forEach(el=>{ const n=S.onlineRooms.get(+el.dataset.here)||0; el.innerHTML=n?`<i></i>${n} في الغرفة`:""; }); }
 function card(p){
   const n=filled(p),name=p.project_name.trim();
   const meta = n===9?`<span class="done">مكتمل</span>`:`<span>${n} من 9</span>`;
@@ -533,7 +582,7 @@ const liveRow=()=>({...S.room.base,...draftAsRow()});
 async function openRoom(id){
   const row=S.rows.get(id)||blank(id);
   S.room={id,base:row,draft:draftFrom(row),editing:false,dirty:false,saving:false,pdfBusy:false};
-  S.cell=null; renderRoom(); scrollTo(0,0); joinRoom(id);
+  S.cell=null; renderRoom(); scrollTo(0,0); joinRoom(id); heartbeat();
   if(!ME.name && !ME.asked) askName();
   try{
     const fresh=await getOne(id); setOnline(true);
@@ -547,7 +596,7 @@ async function openRoom(id){
   }catch(e){ console.error(e); setOnline(false); toast("تعذّر تحميل آخر نسخة","تحقق من الاتصال بالإنترنت","err"); }
 }
 function askName(){ ME.asked=true; $("#whoName").value=""; $("#who").classList.add("open"); setTimeout(()=>$("#whoName").focus(),60); }
-$("#whoForm").addEventListener("submit",e=>{ e.preventDefault(); const v=$("#whoName").value.trim(); if(!v) return; ME.name=v; saveMe(); $("#who").classList.remove("open"); track(); if(S.room){ const el=$(".people"); if(el) el.outerHTML=peopleHTML(); } });
+$("#whoForm").addEventListener("submit",e=>{ e.preventDefault(); const v=$("#whoName").value.trim(); if(!v) return; ME.name=v; saveMe(); $("#who").classList.remove("open"); track(true); if(S.room){ const el=$(".people"); if(el) el.outerHTML=peopleHTML(); } });
 $("#whoSkip").onclick=()=>$("#who").classList.remove("open");
 
 function actionsHTML(m=false){
@@ -717,22 +766,26 @@ $("#dPdf").onclick=()=>{ $("#done").classList.remove("open"); downloadPDF(); };
 $("#dClose").onclick=()=>$("#done").classList.remove("open");
 
 /* ===== Background refresh (fallback if live updates are unavailable) ===== */
+/* Fallback refresh. Live "saved" messages handle the instant case, so this can be slow:
+   20 s on the home page, 40 s inside a room (≈3 requests/s total with 100 people). */
+let tick=0;
 setInterval(async()=>{
-  if(document.hidden) return;
+  if(document.hidden) return; tick++;
   try{
-    if(S.room&&!S.room.editing&&!S.room.saving&&!S.room.pdfBusy){
+    if(S.room){
+      if(tick%2||S.room.editing||S.room.saving||S.room.pdfBusy) return;
       const fresh=await getOne(S.room.id); setOnline(true);
       if(S.room&&!S.room.editing&&fresh.updated_at!==S.room.base.updated_at){ S.rows.set(fresh.id,fresh); S.room.base=fresh; S.room.draft=draftFrom(fresh); const y=scrollY; renderRoom(); scrollTo(0,y); }
-    } else if(!S.room){
+    } else {
       const rows=await getAll(); rows.forEach(x=>S.rows.set(x.id,x)); setOnline(true);
       if(!S.room){ const y=scrollY; renderHome(); scrollTo(0,y); }
     }
   }catch(e){ setOnline(false); }
-},15000);
+},20000);
 
 /* ===== Routing ===== */
 const hashId=()=>{ const m=location.hash.match(/^#project-(\d{1,2})$/); const n=m?+m[1]:0; return n>=1&&n<=COUNT?n:null; };
-function route(){ const id=hashId(); if(id) openRoom(id); else { S.room=null; leaveRoom(); renderHome(); scrollTo(0,0); } }
+function route(){ const id=hashId(); if(id) openRoom(id); else { const was=!!S.room; S.room=null; leaveRoom(); renderHome(); scrollTo(0,0); if(was) heartbeat(); } }
 function go(id){
   if(S.room&&S.room.dirty){ S.pending=id; $("#leave").classList.add("open"); return; }
   const h=id?`#project-${id}`:"";
@@ -794,6 +847,7 @@ document.addEventListener("focusout",e=>{
 (async()=>{
   route();
   initRealtime();
+  heartbeat();
   try{ const rows=await getAll(); rows.forEach(x=>S.rows.set(x.id,x)); S.loaded=true; setOnline(true); }
   catch(e){ console.error(e); S.loaded=true; setOnline(false); }
   if(!S.room) renderHome();
