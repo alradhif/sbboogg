@@ -379,7 +379,7 @@ function mergeNotes(base,mine,theirs){
 }
 
 /* ===== State ===== */
-const S={rows:new Map(),loaded:false,online:null,room:null,filter:"all",pending:undefined,skipHash:false,people:[],cell:null,onlineRooms:new Map()};
+const S={rows:new Map(),loaded:false,online:null,room:null,filter:"all",pending:undefined,skipHash:false,people:[],cell:null,onlineRooms:new Map(),typing:new Map()};
 const draftKey=id=>`bmc4-draft-${id}`;
 const saveLocal=()=>{ try{ const r=S.room; localStorage.setItem(draftKey(r.id),JSON.stringify({base:r.base,draft:r.draft})); }catch(e){} };
 const loadLocal=id=>{ try{ return JSON.parse(localStorage.getItem(draftKey(id))||"null"); }catch(e){ return null; } };
@@ -402,8 +402,9 @@ function toast(t,s="",kind="ok",ms=3600){
    - Each room has its own small channel (about 5 people), so updates only reach teammates.
    - Presence updates are throttled; cursors are only sent when teammates are present,
      and their rate adapts to how many computers are online so the total stays in budget. */
-const REALTIME_BUDGET = 60;          // messages/second for cursors. Free plan limit is 100; set ~400 on the Pro plan.
-const PRESENCE_MIN_GAP = 15000;      // ms between presence updates per person (limit: 5 per 30 s)
+const REALTIME_BUDGET = 50;          // messages/second for cursors. Free plan limit is 100 (typing + saves use the rest); set ~400 on the Pro plan.
+const TYPING_MIN_GAP = 5000;         // ms between "is typing" updates per person
+const PRESENCE_MIN_GAP = 15000;      // ms between presence updates per person (limit: 5 per 30 s). Presence now only carries name + colour.
 const HEARTBEAT_EVERY = 30000;       // ms
 const IS_DESKTOP = matchMedia("(hover: hover) and (pointer: fine)").matches;
 
@@ -421,27 +422,29 @@ async function initRealtime(){
 function joinRoom(id){
   if(!RT.sb) return;
   if(RT.room){ RT.sb.removeChannel(RT.room); RT.room=null; }
-  clearCursors(); S.people=[]; RT.roomId=id; RT.joined=false; RT.lastTrack=0;
+  clearCursors(); S.people=[]; S.typing=new Map(); RT.roomId=id; RT.joined=false; RT.lastTrack=0; RT.lastTyping=0;
   const ch=RT.sb.channel(`bmc-room-${id}`,{config:{broadcast:{self:false},presence:{key:ME.id}}});
   ch.on("presence",{event:"sync"},()=>{
     if(RT.room!==ch) return;
     const st=ch.presenceState(), now=[];
     for(const [key,metas] of Object.entries(st)){ const m=metas[metas.length-1]; if(m) now.push({...m,id:key}); }
-    S.people=now; onPeople();
+    const grew=now.length>S.people.length; S.people=now; onPeople();
+    if(grew&&S.cell) sendTyping(true);   // let a teammate who just arrived see where I am
   });
   ch.on("broadcast",{event:"cursor"},({payload})=>moveCursor(payload));
   ch.on("broadcast",{event:"saved"},({payload})=>onTeammateSaved(payload));
+  ch.on("broadcast",{event:"typing"},({payload})=>{ if(!payload||payload.id===ME.id) return; if(payload.cell) S.typing.set(payload.id,{cell:payload.cell,at:Date.now()}); else S.typing.delete(payload.id); renderTyping(); });
   ch.subscribe(st=>{ if(st==="SUBSCRIBED"&&RT.room===ch){ RT.joined=true; track(true); } });
   RT.room=ch;
 }
-function leaveRoom(){ if(RT.room&&RT.sb) RT.sb.removeChannel(RT.room); RT.room=null; RT.roomId=null; RT.joined=false; S.people=[]; clearCursors(); S.cell=null; }
+function leaveRoom(){ if(RT.room&&RT.sb) RT.sb.removeChannel(RT.room); RT.room=null; RT.roomId=null; RT.joined=false; S.people=[]; S.typing=new Map(); clearCursors(); S.cell=null; }
 // throttled presence: never more than one update per PRESENCE_MIN_GAP; the latest state always wins
 function track(now=false){
   if(!RT.room||!RT.joined) return;
   clearTimeout(RT.trackTimer);
   const wait=now?0:Math.max(0,RT.lastTrack+PRESENCE_MIN_GAP-Date.now());
   RT.trackTimer=setTimeout(()=>{ if(!RT.room||!RT.joined) return; RT.lastTrack=Date.now();
-    RT.room.track({name:ME.name||"",color:ME.color,cell:S.cell||null}).catch(()=>{}); },wait);
+    RT.room.track({name:ME.name||"",color:ME.color}).catch(()=>{}); },wait);
 }
 function send(event,payload){ if(RT.room&&RT.joined) RT.room.send({type:"broadcast",event,payload}).catch(()=>{}); }
 const others=()=>S.people.filter(p=>p.id!==ME.id);
@@ -451,11 +454,12 @@ function onPeople(){
   document.querySelectorAll(".typing").forEach(t=>{ t.innerHTML=typingHTML(t.dataset.cell); });
   const ids=new Set(others().map(p=>p.id));
   for(const [id,c] of cursors) if(!ids.has(id)){ c.el.remove(); cursors.delete(id); }
+  for(const id of [...S.typing.keys()]) if(!ids.has(id)) S.typing.delete(id);
 }
 function peopleHTML(){
   const here=[...S.people];
   if(!here.some(p=>p.id===ME.id)) here.unshift({id:ME.id,name:ME.name,color:ME.color});
-  const shown=here.slice(0,5), extra=here.length-shown.length;
+  const shown=here.slice(0,innerWidth<720?4:7), extra=here.length-shown.length;
   const label = here.length>1 ? `${here.length} في الغرفة` : "";
   return `<div class="people" title="${esc(here.map(p=>p.id===ME.id?"أنت":(p.name||"زائر")).join("، "))}">
     ${shown.map(p=>`<span class="av" style="--pc:${p.color}">${p.id===ME.id&&!ME.name?'<span style="font-size:10px">أنت</span>':esc(initial(p.id===ME.id?ME.name:(p.name||"زائر")))}</span>`).join("")}
@@ -463,10 +467,21 @@ function peopleHTML(){
 }
 function typingHTML(a){
   if(!S.room) return "";
-  return others().filter(p=>p.cell===a).map(p=>`<span style="--pc:${p.color}">${esc(p.name||"زائر")} يكتب</span>`).join("");
+  const now=Date.now();
+  return others().filter(p=>{ const t=S.typing.get(p.id); return t&&t.cell===a&&now-t.at<90000; }).map(p=>`<span style="--pc:${p.color}">${esc(p.name||"زائر")} يكتب</span>`).join("");
 }
 let cellTimer;
-function setCell(a){ clearTimeout(cellTimer); cellTimer=setTimeout(()=>{ if(S.cell===a) return; S.cell=a; track(); }, a?1200:300); }
+function setCell(a){ clearTimeout(cellTimer); cellTimer=setTimeout(()=>{ if(S.cell===a) return; S.cell=a; sendTyping(); }, a?1200:300); }
+// "is typing" goes over the room's broadcast channel (not presence), at most once per TYPING_MIN_GAP; latest state wins
+let typingTimer;
+function sendTyping(force=false){
+  if(!RT.room||!RT.joined||!others().length) return;
+  clearTimeout(typingTimer);
+  const wait=force?0:Math.max(0,(RT.lastTyping||0)+TYPING_MIN_GAP-Date.now());
+  typingTimer=setTimeout(()=>{ RT.lastTyping=Date.now(); send("typing",{id:ME.id,cell:S.cell||null}); },wait);
+}
+function renderTyping(){ document.querySelectorAll(".typing").forEach(t=>{ t.innerHTML=typingHTML(t.dataset.cell); }); }
+setInterval(()=>{ if(S.room&&S.typing&&S.typing.size) renderTyping(); },30000);
 
 /* Heartbeat → powers the "N in the room" counts on the home page and the cursor budget */
 async function heartbeat(){
@@ -492,7 +507,8 @@ document.addEventListener("visibilitychange",()=>{ if(!document.hidden) heartbea
 function cursorInterval(){
   const peers=others().length; if(!peers) return Infinity;           // alone in the room → send nothing
   const ms=1000*RT.desktops*(peers+1)/REALTIME_BUDGET;
-  return Math.min(8000,Math.max(80,ms));
+  if(ms>6000) return Infinity;   // too many computers online for useful cursors within budget → pause them (they resume automatically)
+  return Math.max(80,ms);
 }
 const cursors=new Map();
 const CURSOR_SVG='<svg viewBox="0 0 24 24"><path d="M4 2l16 10.5-7 1.6-3.6 6.4z" fill="currentColor" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>';
